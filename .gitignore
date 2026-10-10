@@ -1,0 +1,23 @@
+# Dependencias
+node_modules/
+
+# Artefactos de compilación
+dist/
+build/
+.next/
+
+# Variables de entorno
+.env
+.env.*
+!.env.example
+
+# Pruebas y registros
+coverage/
+*.log
+
+# Archivos del sistema y herramientas
+.DS_Store
+.turbo/
+
+# Bases de datos SQLite de desarrollo de Prisma
+prisma/migrations/dev.db*
