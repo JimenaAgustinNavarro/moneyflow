@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme {
+  --color-moneyflow-dark: #0d3b2e;
+  --color-moneyflow-primary: #10b981;
+  --color-moneyflow-danger: #ef4444;
+  --color-moneyflow-warning: #f59e0b;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background-color: #ffffff;
+  color: #0f172a;
+}

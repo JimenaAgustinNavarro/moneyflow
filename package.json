@@ -11,8 +11,11 @@
     "node": ">=22.0.0"
   },
   "scripts": {
+    "predev": "npm run build --workspace=@moneyflow/shared",
     "dev": "concurrently -n api,web -c blue,green \"npm run dev --workspace=apps/api --if-present\" \"npm run dev --workspace=apps/web --if-present\"",
+    "prebuild": "npm run build --workspace=@moneyflow/shared",
     "build": "npm run build --workspaces --if-present",
+    "pretest": "npm run build --workspace=@moneyflow/shared",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "format": "prettier --write .",
