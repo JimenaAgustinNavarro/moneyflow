@@ -15,7 +15,7 @@ Este documento es la **fuente de verdad del dominio financiero** de MoneyFlow. T
 - **Precisión monetaria:** `Decimal(12, 2)`. Nunca `Float`.
 - **Precisión de fecha:** `DateTime` con zona horaria (`Timestamptz`).
 - **IDs:** UUID v4 (`String @id @default(uuid())`).
-- **Soft delete:** no se usa en el MVP. Los borrados son hard delete, excepto donde se indique explícitamente.
+- **Soft delete:** se usa en entidades financieras (`users`, `accounts`, `categories`, `transactions`, `recurrences`, `obligations`, `budgets`, `savings_goals`, `goal_contributions`, `tags`). Los borrados son lógicos: se marca `deletedAt = now()` y se filtran en las queries. Los datos se pueden restaurar con el endpoint `POST /:entidad/:id/restore`. Hard delete solo en pivotes (`transaction_tags`, `budget_categories`) y datos efímeros (`refresh_tokens`, `notifications`).
 
 ---
 
@@ -114,10 +114,10 @@ Un compromiso de pago futuro. Ejemplo: "pagar la luz antes del 15 de cada mes".
 - `amount`: monto a pagar.
 - `dueDate`: fecha de vencimiento.
 - `paidAt`: fecha de pago (nullable).
-- `transactionId`: movimiento que pagó la obligación (nullable).
+- El movimiento que paga la obligación se vincula desde `Transaction.obligationId` (nullable).
 - `periodStart`: inicio del período (para recurrencias, idempotencia).
 
-**Regla de idempotencia:** `(recurrenceId, periodStart)` es único cuando `recurrenceId != null`. Evita duplicados al generar obligaciones recurrentes.
+**Regla de idempotencia:** el service valida que `recurrenceId` y `periodStart` estén presentes juntos para obligaciones recurrentes. Un `CHECK` en la base de datos exige que ambos sean nulos o ambos no nulos, y un índice único parcial sobre `(recurrenceId, periodStart)` evita duplicados.
 
 ### 1.8 Presupuesto (`budget`)
 
@@ -227,11 +227,11 @@ text
 
 ### 3.3 Borrado
 
-**Regla:** hard delete en el MVP.
+**Regla:** soft delete en el MVP. Se marca `deletedAt` y se conserva el movimiento para auditoría e historial financiero.
 
 **Efectos:**
 - Se recalcula el saldo de la cuenta afectada.
-- Si el movimiento tiene `obligationId`, la obligación pasa de `PAID` a `PENDING` y `paidAt` y `transactionId` se limpian.
+- Si el movimiento tiene `obligationId`, la obligación pasa de `PAID` a `PENDING` y `paidAt` se limpia.
 - Si el movimiento es una transferencia, se borran **ambas patas** (por `transferId`).
 
 ### 3.4 Borrado de cuenta con movimientos
@@ -298,7 +298,7 @@ Una recurrencia (`recurrence`) define un patrón de pagos:
 
 **Regla:** un cron diario genera las obligaciones del período correspondiente.
 
-**Idempotencia:** se usa un constraint único `(recurrenceId, periodStart)`. Si el cron corre dos veces, la segunda no crea duplicados (falla el insert con P2002, que se captura y se ignora).
+**Idempotencia:** el service valida que `recurrenceId` y `periodStart` estén presentes juntos. La BD refuerza esta regla con un `CHECK` y un índice único parcial sobre `(recurrenceId, periodStart)`. Si el cron corre dos veces, la segunda no crea duplicados.
 
 **Rango de generación:** el cron genera obligaciones para los próximos **30 días**. Las obligaciones más lejanas se generan cuando se acercan.
 
@@ -307,7 +307,7 @@ Una recurrencia (`recurrence`) define un patrón de pagos:
 **Regla:** al marcar una obligación como pagada:
 - Se elige cuenta de pago, categoría y fecha.
 - Se crea un movimiento `EXPENSE` con `status = CONFIRMED`, `obligationId = obligación.id`.
-- La obligación pasa a `PAID` con `paidAt` y `transactionId` seteados.
+- La obligación pasa a `PAID` con `paidAt` seteado. El movimiento queda vinculado mediante `Transaction.obligationId`.
 - **Una obligación pagada no se puede pagar dos veces.** Si se intenta, error 409.
 
 ### 5.4 Edición de obligación
@@ -324,10 +324,7 @@ Una recurrencia (`recurrence`) define un patrón de pagos:
 
 ### 5.6 Borrado de recurrencia
 
-**Regla:** al borrar una recurrencia:
-- Las obligaciones `PENDING` asociadas se borran.
-- Las obligaciones `PAID` se conservan (historial).
-- Las obligaciones `OVERDUE` se borran.
+**Regla:** al borrar lógicamente una recurrencia, sus obligaciones dependientes no se borran en cascada y conservan su historial. Si se elimina físicamente una recurrencia, `recurrenceId` de las obligaciones se establece en `null`.
 
 ---
 
@@ -371,6 +368,103 @@ Una recurrencia (`recurrence`) define un patrón de pagos:
 - **Categoría del sistema:** no se puede borrar.
 - **Categoría del usuario sin movimientos:** se borra.
 - **Categoría del usuario con movimientos:** error 409. Hay que reasignar los movimientos primero.
+
+---
+
+## 12. Soft delete
+
+### 12.1 Tablas con soft delete
+
+| Tabla | Razón |
+|---|---|
+| `users` | Datos personales del usuario |
+| `accounts` | Datos financieros críticos |
+| `categories` | Referenciadas por movimientos históricos |
+| `transactions` | Datos financieros críticos |
+| `recurrences` | Historial de obligaciones |
+| `obligations` | Historial de pagos |
+| `budgets` | Historial de presupuestos |
+| `savings_goals` | Historial de ahorros |
+| `goal_contributions` | Historial de aportes |
+| `tags` | Referenciadas por movimientos históricos |
+
+### 12.2 Tablas con hard delete
+
+| Tabla | Razón |
+|---|---|
+| `refresh_tokens` | Se revocan (`revokedAt`), no se borran |
+| `notifications` | Datos efímeros |
+| `transaction_tags` | Pivote (se borra al desetiquetar) |
+| `budget_categories` | Pivote (se borra al desasociar) |
+
+### 12.3 Regla general
+
+Toda entidad con soft delete tiene:
+- Columna `deletedAt DateTime? @db.Timestamptz(6)`.
+- Índices únicos parciales (`WHERE deleted_at IS NULL`).
+- Filtro `deletedAt: null` en todas las queries de lectura.
+- Endpoint `POST /:entidad/:id/restore` para restaurar.
+- Query param `includeDeleted=true` para auditar.
+
+### 12.4 Filtro en queries
+
+Todas las queries de lectura filtran `deletedAt: null`.
+
+Ejemplo:
+
+```ts
+const accounts = await prisma.account.findMany({
+  where: { userId, deletedAt: null },
+});
+```
+
+### 12.5 Borrado lógico
+
+Cuando el usuario borra una entidad:
+
+```ts
+await prisma.account.update({
+  where: { id },
+  data: { deletedAt: new Date() },
+});
+```
+
+Consecuencias:
+- El registro sigue en la BD.
+- Se filtra en las queries de lectura.
+- Se puede restaurar.
+- Los índices únicos parciales permiten crear una entidad con el mismo nombre.
+
+### 12.6 Restauración
+
+Endpoint: `POST /:entidad/:id/restore`.
+
+Efecto:
+- `deletedAt = null`.
+- Se valida que no haya conflicto de unicidad.
+- Si hay conflicto → error 409.
+
+### 12.7 Cascada de soft delete
+
+Regla: borrar una entidad con soft delete NO borra en cascada las entidades dependientes.
+
+Ejemplo: borrar una cuenta NO borra sus movimientos. Los movimientos quedan con `accountId` apuntando a una cuenta borrada. Se conserva el historial.
+
+### 12.8 Borrado de entidades con dependencias
+
+Regla: no se puede borrar (soft) una entidad con dependencias activas.
+
+Ejemplo:
+- Borrar una cuenta con movimientos CONFIRMED → error 409.
+- Alternativa: archivar la cuenta (`archived = true`).
+
+Excepción: categories con movimientos → se puede borrar (soft).
+
+### 12.9 Auditoría
+
+Query param: `?includeDeleted=true`.
+
+Efecto: devuelve también las entidades borradas. Solo accesible para el dueño de los datos.
 
 ---
 
