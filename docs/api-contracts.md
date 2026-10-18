@@ -398,6 +398,8 @@ Auth: Sí.
 Query params:
 
 archived (opcional): true | false — filtrar por archivadas.
+Si no se especifica, se asume false (solo cuentas no archivadas).
+Para ver las archivadas, usar ?archived=true.
 
 includeDeleted (opcional): true — incluir cuentas borradas (auditoría).
 
