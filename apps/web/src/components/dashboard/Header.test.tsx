@@ -26,6 +26,7 @@ describe('Header', () => {
     render(<Header />);
 
     expect(screen.getByText('Ana Ruiz')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Cambiar a modo/ })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Abrir menú de usuario' }));
 
     const logoutItem = await screen.findByRole('menuitem', { name: 'Cerrar sesión' });

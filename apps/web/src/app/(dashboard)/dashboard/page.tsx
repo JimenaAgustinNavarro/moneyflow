@@ -40,16 +40,16 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-slate-900">
+        <h2 className="text-2xl font-semibold text-foreground">
           Bienvenido{name ? `, ${name}` : ''}
         </h2>
-        <p className="text-sm text-slate-600">Este es tu resumen financiero.</p>
+        <p className="text-sm text-muted-foreground">Este es tu resumen financiero.</p>
       </div>
 
       {loadError && (
         <p
           role="alert"
-          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
         >
           {loadError}
         </p>
@@ -63,11 +63,11 @@ export default function DashboardPage() {
         ].map(({ title, value }) => (
           <Card key={title}>
             <CardHeader>
-              <CardTitle className="text-sm font-medium text-slate-600">{title}</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-slate-900">{value}</p>
-              <p className="text-xs text-slate-500">Próximamente</p>
+              <p className="text-2xl font-bold text-foreground">{value}</p>
+              <p className="text-xs text-muted-foreground">Próximamente</p>
             </CardContent>
           </Card>
         ))}

@@ -47,7 +47,7 @@ export function LoginForm() {
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
       <div>
-        <label htmlFor="login-email" className="mb-2 block text-sm font-medium text-slate-700">
+        <label htmlFor="login-email" className="mb-2 block text-sm font-medium text-foreground">
           Email
         </label>
         <input
@@ -55,14 +55,14 @@ export function LoginForm() {
           type="email"
           autoComplete="email"
           {...register('email')}
-          className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-moneyflow-primary focus:ring-2 focus:ring-moneyflow-primary/20"
+          className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-foreground outline-none transition focus:border-moneyflow-primary focus:ring-2 focus:ring-moneyflow-primary/20"
           aria-invalid={Boolean(errors.email)}
         />
         {errors.email && <p className="mt-1 text-sm text-moneyflow-danger">{errors.email.message}</p>}
       </div>
 
       <div>
-        <label htmlFor="login-password" className="mb-2 block text-sm font-medium text-slate-700">
+        <label htmlFor="login-password" className="mb-2 block text-sm font-medium text-foreground">
           Contraseña
         </label>
         <input
@@ -70,7 +70,7 @@ export function LoginForm() {
           type="password"
           autoComplete="current-password"
           {...register('password')}
-          className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-moneyflow-primary focus:ring-2 focus:ring-moneyflow-primary/20"
+          className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-foreground outline-none transition focus:border-moneyflow-primary focus:ring-2 focus:ring-moneyflow-primary/20"
           aria-invalid={Boolean(errors.password)}
         />
         {errors.password && (
@@ -79,7 +79,7 @@ export function LoginForm() {
       </div>
 
       {formError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {formError}
         </div>
       )}
@@ -87,7 +87,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-xl bg-moneyflow-primary px-4 py-2.5 font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-xl bg-moneyflow-primary px-4 py-2.5 font-semibold text-moneyflow-dark transition hover:bg-moneyflow-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
       </button>

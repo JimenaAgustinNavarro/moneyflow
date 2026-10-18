@@ -26,8 +26,8 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
-      <div className="flex h-16 items-center border-b border-slate-200 px-6">
+    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-border bg-card">
+      <div className="flex h-16 items-center border-b border-border px-6">
         <span className="text-lg font-semibold text-moneyflow-primary">MoneyFlow</span>
       </div>
       <nav aria-label="Navegación principal" className="flex-1 space-y-1 p-4">
@@ -40,7 +40,7 @@ export function Sidebar() {
                 key={href}
                 aria-disabled="true"
                 title="Próximamente"
-                className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-400 opacity-50"
+                className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground opacity-50"
               >
                 <Icon aria-hidden="true" size={18} />
                 {label}
@@ -56,7 +56,7 @@ export function Sidebar() {
               className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
                 isActive
                   ? 'bg-moneyflow-primary/10 font-medium text-moneyflow-primary'
-                  : 'text-slate-700 hover:bg-slate-100'
+                  : 'text-foreground hover:bg-accent'
               }`}
             >
               <Icon aria-hidden="true" size={18} />

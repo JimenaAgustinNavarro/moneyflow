@@ -16,8 +16,6 @@ body {
     system-ui,
     -apple-system,
     sans-serif;
-  background-color: #ffffff;
-  color: #0f172a;
 }
 
 @theme inline {

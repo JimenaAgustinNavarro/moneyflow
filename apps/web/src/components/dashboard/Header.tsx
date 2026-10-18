@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useAuth } from '@/hooks/useAuth';
 
 function getInitials(name: string | undefined): string {
@@ -28,10 +29,11 @@ export function Header() {
   const { user, logout } = useAuth();
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
-      <h1 className="text-lg font-medium text-slate-900">MoneyFlow</h1>
+    <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
+      <h1 className="text-lg font-medium text-foreground">MoneyFlow</h1>
       <div className="flex items-center gap-3">
-        <span className="hidden text-sm text-slate-600 sm:inline">{user?.name ?? 'Usuario'}</span>
+        <span className="hidden text-sm text-muted-foreground sm:inline">{user?.name ?? 'Usuario'}</span>
+        <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

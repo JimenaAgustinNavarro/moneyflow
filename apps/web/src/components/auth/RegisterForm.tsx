@@ -49,7 +49,7 @@ export function RegisterForm() {
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
       <div>
-        <label htmlFor="register-name" className="mb-2 block text-sm font-medium text-slate-700">
+        <label htmlFor="register-name" className="mb-2 block text-sm font-medium text-foreground">
           Nombre
         </label>
         <input
@@ -57,14 +57,14 @@ export function RegisterForm() {
           type="text"
           autoComplete="name"
           {...formRegister('name')}
-          className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-moneyflow-primary focus:ring-2 focus:ring-moneyflow-primary/20"
+          className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-foreground outline-none transition focus:border-moneyflow-primary focus:ring-2 focus:ring-moneyflow-primary/20"
           aria-invalid={Boolean(errors.name)}
         />
         {errors.name && <p className="mt-1 text-sm text-moneyflow-danger">{errors.name.message}</p>}
       </div>
 
       <div>
-        <label htmlFor="register-email" className="mb-2 block text-sm font-medium text-slate-700">
+        <label htmlFor="register-email" className="mb-2 block text-sm font-medium text-foreground">
           Email
         </label>
         <input
@@ -72,14 +72,14 @@ export function RegisterForm() {
           type="email"
           autoComplete="email"
           {...formRegister('email')}
-          className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-moneyflow-primary focus:ring-2 focus:ring-moneyflow-primary/20"
+          className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-foreground outline-none transition focus:border-moneyflow-primary focus:ring-2 focus:ring-moneyflow-primary/20"
           aria-invalid={Boolean(errors.email)}
         />
         {errors.email && <p className="mt-1 text-sm text-moneyflow-danger">{errors.email.message}</p>}
       </div>
 
       <div>
-        <label htmlFor="register-password" className="mb-2 block text-sm font-medium text-slate-700">
+        <label htmlFor="register-password" className="mb-2 block text-sm font-medium text-foreground">
           Contraseña
         </label>
         <input
@@ -87,7 +87,7 @@ export function RegisterForm() {
           type="password"
           autoComplete="new-password"
           {...formRegister('password')}
-          className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-moneyflow-primary focus:ring-2 focus:ring-moneyflow-primary/20"
+          className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-foreground outline-none transition focus:border-moneyflow-primary focus:ring-2 focus:ring-moneyflow-primary/20"
           aria-invalid={Boolean(errors.password)}
         />
         {errors.password && (
@@ -96,7 +96,7 @@ export function RegisterForm() {
       </div>
 
       {formError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {formError}
         </div>
       )}
@@ -104,7 +104,7 @@ export function RegisterForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-xl bg-moneyflow-primary px-4 py-2.5 font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-xl bg-moneyflow-primary px-4 py-2.5 font-semibold text-moneyflow-dark transition hover:bg-moneyflow-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isSubmitting ? 'Creando cuenta...' : 'Crear cuenta'}
       </button>

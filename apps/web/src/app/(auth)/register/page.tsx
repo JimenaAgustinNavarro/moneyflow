@@ -23,9 +23,9 @@ export default function RegisterPage() {
       description="Empezá a organizar tus finanzas con MoneyFlow."
     >
       <RegisterForm />
-      <p className="mt-5 text-center text-sm text-slate-600">
+      <p className="mt-5 text-center text-sm text-muted-foreground">
         ¿Ya tenés cuenta?{' '}
-        <button type="button" onClick={() => router.push('/login')} className="font-semibold text-moneyflow-primary hover:text-green-600">
+        <button type="button" onClick={() => router.push('/login')} className="font-semibold text-moneyflow-primary hover:text-moneyflow-primary/80">
           Iniciá sesión
         </button>
       </p>

@@ -49,9 +49,9 @@ function LoginPageContent() {
       }
     >
       <LoginForm />
-      <p className="mt-5 text-center text-sm text-slate-600">
+      <p className="mt-5 text-center text-sm text-muted-foreground">
         ¿No tenés cuenta?{' '}
-        <button type="button" onClick={() => router.push('/register')} className="font-semibold text-moneyflow-primary hover:text-green-600">
+        <button type="button" onClick={() => router.push('/register')} className="font-semibold text-moneyflow-primary hover:text-moneyflow-primary/80">
           Registrate
         </button>
       </p>
