@@ -9,9 +9,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useRouter } from 'next/navigation';
 
-import { loginUser, logoutUser, registerUser } from '@/lib/api-client';
-import { clearAuthSession, readAuthSession, saveAuthSession } from '@/lib/auth-storage';
+import { loginUser, logoutUser, refreshSessionTokens, registerUser } from '@/lib/api-client';
+import { clearAuthSession, getUser, readAuthSession, saveAuthSession } from '@/lib/auth-storage';
 import type { AuthSession, AuthUser, LoginInput, RegisterInput } from '@/types/auth';
 
 type AuthContextValue = {
@@ -21,11 +22,13 @@ type AuthContextValue = {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -44,10 +47,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(session.user);
   }, []);
 
-  const login = useCallback(async (input: LoginInput) => {
-    const session = await loginUser(input);
-    persistSession(session);
-  }, [persistSession]);
+  const login = useCallback(
+    async (input: LoginInput) => {
+      const session = await loginUser(input);
+      persistSession(session);
+    },
+    [persistSession],
+  );
 
   const register = useCallback(async (input: RegisterInput) => {
     await registerUser(input);
@@ -66,6 +72,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     clearAuthSession();
     setUser(null);
+    router.push('/login');
+  }, [router]);
+
+  const refreshSession = useCallback(async () => {
+    await refreshSessionTokens();
+    setUser(getUser());
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -76,8 +88,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      refreshSession,
     }),
-    [login, logout, register, user, isLoading],
+    [login, logout, refreshSession, register, user, isLoading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

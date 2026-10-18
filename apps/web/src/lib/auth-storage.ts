@@ -40,6 +40,23 @@ export function saveAuthSession(session: AuthSession): void {
   window.localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(session.user));
 }
 
+export function setTokens(tokens: { accessToken: string; refreshToken: string }): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(STORAGE_KEYS.accessToken, tokens.accessToken);
+  window.localStorage.setItem(STORAGE_KEYS.refreshToken, tokens.refreshToken);
+}
+
+export function getRefreshToken(): string | null {
+  return readAuthSession().refreshToken;
+}
+
+export function getUser(): AuthUser | null {
+  return readAuthSession().user;
+}
+
 export function clearAuthSession(): void {
   if (typeof window === 'undefined') {
     return;
