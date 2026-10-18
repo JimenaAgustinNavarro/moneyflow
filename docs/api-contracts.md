@@ -19,7 +19,7 @@ text
 
 ### 0.2 Autenticación
 
-**Todas las rutas excepto `POST /auth/register` y `POST /auth/login` requieren:**
+**Todas las rutas excepto `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh` y `GET /health` requieren:**
 Authorization: Bearer <access_token>
 
 text

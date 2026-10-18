@@ -15,6 +15,7 @@ Este documento es la **fuente de verdad del dominio financiero** de MoneyFlow. T
 - **Precisión monetaria:** `Decimal(12, 2)`. Nunca `Float`.
 - **Precisión de fecha:** `DateTime` con zona horaria (`Timestamptz`).
 - **IDs:** UUID v4 (`String @id @default(uuid())`).
+- **Normalización de email:** se recorta con `trim` y se convierte a lowercase al registrarse y al iniciar sesión. El email guardado en la base de datos siempre está en lowercase.
 - **Soft delete:** se usa en entidades financieras (`users`, `accounts`, `categories`, `transactions`, `recurrences`, `obligations`, `budgets`, `savings_goals`, `goal_contributions`, `tags`). Los borrados son lógicos: se marca `deletedAt = now()` y se filtran en las queries. Los datos se pueden restaurar con el endpoint `POST /:entidad/:id/restore`. Hard delete solo en pivotes (`transaction_tags`, `budget_categories`) y datos efímeros (`refresh_tokens`, `notifications`).
 
 ---
