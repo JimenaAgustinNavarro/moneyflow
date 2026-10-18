@@ -320,6 +320,7 @@ json
 {
   "data": {
     "id": "550e8400-...",
+    "email": "jimena@example.com",
     "name": "Jimena Agustín Ruiz",
     "timezone": "America/Lima",
     "updatedAt": "2026-10-16T15:00:00-05:00"

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 interface RefreshTokenData {
@@ -35,6 +36,17 @@ export class RefreshTokenRepository {
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+  }
+
+  async revokeAllForUserTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<number> {
+    const result = await tx.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return result.count;
   }
 
   async rotate(oldTokenHash: string, newTokenData: RefreshTokenData) {
