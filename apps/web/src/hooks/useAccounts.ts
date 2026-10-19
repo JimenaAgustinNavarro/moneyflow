@@ -22,6 +22,14 @@ export function useAccounts(archived = false) {
   });
 }
 
+export function useAccount(id: string | null | undefined) {
+  return useQuery({
+    queryKey: ['accounts', 'detail', id],
+    queryFn: () => authenticatedRequest<Account>(`/accounts/${id}`),
+    enabled: Boolean(id),
+  });
+}
+
 export function useCreateAccount() {
   const queryClient = useQueryClient();
 

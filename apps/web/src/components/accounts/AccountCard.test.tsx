@@ -34,6 +34,10 @@ describe('AccountCard', () => {
     expect(screen.getByRole('heading', { name: 'Ahorros' })).toBeInTheDocument();
     expect(screen.getByText('Banco')).toBeInTheDocument();
     expect(screen.getByText('S/ 1,000.00')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Ahorros Banco/ })).toHaveAttribute(
+      'href',
+      '/accounts/account-1',
+    );
 
     await user.click(screen.getByRole('button', { name: 'Acciones de Ahorros' }));
     await user.click(await screen.findByText('Editar'));
