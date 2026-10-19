@@ -17,14 +17,14 @@ import type { Account, CreateAccountInput, UpdateAccountInput } from '@/types/ac
 const accountTypes = ['CASH', 'BANK', 'WALLET', 'CREDIT'] as const;
 
 const createSchema = z.object({
-  name: z.string().trim().min(1, 'Ingresá un nombre.').max(60, 'Máximo 60 caracteres.'),
+  name: z.string().trim().min(1, 'Ingresa un nombre.').max(60, 'Máximo 60 caracteres.'),
   type: z.enum(accountTypes),
-  initialBalance: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Ingresá un monto con hasta 2 decimales.'),
+  initialBalance: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Ingresa un monto con hasta 2 decimales.'),
   currency: z.string().trim().length(3, 'La moneda debe tener 3 caracteres.'),
 });
 
 const editSchema = z.object({
-  name: z.string().trim().min(1, 'Ingresá un nombre.').max(60, 'Máximo 60 caracteres.'),
+  name: z.string().trim().min(1, 'Ingresa un nombre.').max(60, 'Máximo 60 caracteres.'),
   type: z.enum(accountTypes),
 });
 

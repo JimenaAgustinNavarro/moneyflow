@@ -38,7 +38,7 @@ describe('LoginForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
-    expect(await screen.findByText('Ingresá un email válido.')).toBeInTheDocument();
+    expect(await screen.findByText('Ingresa un email válido.')).toBeInTheDocument();
   });
 
   it('muestra un error cuando la contraseña está vacía', async () => {
@@ -49,7 +49,7 @@ describe('LoginForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
-    expect(await screen.findByText('Ingresá tu contraseña.')).toBeInTheDocument();
+    expect(await screen.findByText('Ingresa tu contraseña.')).toBeInTheDocument();
   });
 
   it('muestra el error de credenciales inválidas cuando el backend responde 401', async () => {

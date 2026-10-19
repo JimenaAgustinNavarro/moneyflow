@@ -98,7 +98,7 @@ describe('AccountsPage', () => {
     expect(await screen.findByRole('heading', { name: 'Cuenta activa' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Acciones de Cuenta activa' }));
     await user.click(await screen.findByText('Archivar'));
-    expect(await screen.findByText('No hay cuentas todavía. Creá la primera.')).toBeInTheDocument();
+    expect(await screen.findByText('No hay cuentas todavía. Crea la primera.')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Archivadas' }));
     expect(await screen.findByText('Cuenta activa')).toBeInTheDocument();

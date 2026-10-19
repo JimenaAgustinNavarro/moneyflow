@@ -94,7 +94,7 @@ export default function AccountsPage() {
       <Animated variant="fadeIn" className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Cuentas</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Gestioná tus cuentas y saldos.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Administra tus cuentas y saldos.</p>
         </div>
         <Button
           onClick={openCreateModal}
@@ -171,7 +171,7 @@ export default function AccountsPage() {
       {accountsQuery.isSuccess && accountsQuery.data.length === 0 && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            {archived ? 'No hay cuentas archivadas.' : 'No hay cuentas todavía. Creá la primera.'}
+            {archived ? 'No hay cuentas archivadas.' : 'No hay cuentas todavía. Crea la primera.'}
           </p>
           {!archived && (
             <Button variant="outline" asChild>

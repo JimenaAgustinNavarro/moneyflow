@@ -10,8 +10,8 @@ import { Animated } from '@/components/ui/motion';
 import { useAuth } from '@/hooks/useAuth';
 
 const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().email('Ingresá un email válido.'),
-  password: z.string().min(1, 'Ingresá tu contraseña.'),
+  email: z.string().trim().toLowerCase().email('Ingresa un email válido.'),
+  password: z.string().min(1, 'Ingresa tu contraseña.'),
 });
 
 export type LoginFormValues = z.infer<typeof loginSchema>;

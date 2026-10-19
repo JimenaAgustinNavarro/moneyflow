@@ -18,7 +18,7 @@ export default function LoginPage() {
 function LoginPageFallback() {
   return (
     <AuthCard
-      title="Iniciá sesión"
+      title="Inicia sesión"
       description="Accedé a tu panel para gestionar tus finanzas."
     >
       <LoginForm />
@@ -41,18 +41,18 @@ function LoginPageContent() {
 
   return (
     <AuthCard
-      title="Iniciá sesión"
+      title="Inicia sesión"
       description={
         justRegistered
-          ? 'Cuenta creada. Iniciá sesión.'
+          ? 'Cuenta creada. Inicia sesión.'
           : 'Accedé a tu panel para gestionar tus finanzas.'
       }
     >
       <LoginForm />
       <p className="mt-5 text-center text-sm text-muted-foreground">
-        ¿No tenés cuenta?{' '}
+        ¿No tienes cuenta?{' '}
         <button type="button" onClick={() => router.push('/register')} className="font-semibold text-moneyflow-primary hover:text-moneyflow-primary/80">
-          Registrate
+          Regístrate
         </button>
       </p>
     </AuthCard>

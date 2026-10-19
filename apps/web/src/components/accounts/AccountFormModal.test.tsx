@@ -84,6 +84,6 @@ describe('AccountFormModal', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
-    expect(await screen.findByText('Ingresá un nombre.')).toBeInTheDocument();
+    expect(await screen.findByText('Ingresa un nombre.')).toBeInTheDocument();
   });
 });

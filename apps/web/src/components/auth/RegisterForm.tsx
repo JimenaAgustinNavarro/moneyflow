@@ -10,8 +10,8 @@ import { Animated } from '@/components/ui/motion';
 import { useAuth } from '@/hooks/useAuth';
 
 const registerSchema = z.object({
-  name: z.string().trim().min(1, 'Ingresá tu nombre.').max(100, 'El nombre no puede superar 100 caracteres.'),
-  email: z.string().trim().toLowerCase().email('Ingresá un email válido.'),
+  name: z.string().trim().min(1, 'Ingresa tu nombre.').max(100, 'El nombre no puede superar 100 caracteres.'),
+  email: z.string().trim().toLowerCase().email('Ingresa un email válido.'),
   password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres.'),
 });
 

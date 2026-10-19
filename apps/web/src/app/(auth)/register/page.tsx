@@ -19,14 +19,14 @@ export default function RegisterPage() {
 
   return (
     <AuthCard
-      title="Creá tu cuenta"
-      description="Empezá a organizar tus finanzas con MoneyFlow."
+      title="Crea tu cuenta"
+      description="Empieza a organizar tus finanzas con MoneyFlow."
     >
       <RegisterForm />
       <p className="mt-5 text-center text-sm text-muted-foreground">
-        ¿Ya tenés cuenta?{' '}
+        ¿Ya tienes cuenta?{' '}
         <button type="button" onClick={() => router.push('/login')} className="font-semibold text-moneyflow-primary hover:text-moneyflow-primary/80">
-          Iniciá sesión
+          Inicia sesión
         </button>
       </p>
     </AuthCard>
