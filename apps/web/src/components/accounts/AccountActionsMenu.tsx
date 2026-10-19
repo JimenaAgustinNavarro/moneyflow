@@ -29,16 +29,27 @@ export function AccountActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={`Acciones de ${account.name}`}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-full border border-border/80 bg-background/80 transition-all hover:scale-105 hover:shadow-md"
+          aria-label={`Acciones de ${account.name}`}
+        >
           <MoreVertical aria-hidden="true" className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onEdit(account)}>Editar</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onToggleArchive(account)}>
+      <DropdownMenuContent align="end" className="w-52 rounded-xl border border-border bg-popover p-1 shadow-lg">
+        <DropdownMenuItem className="rounded-lg px-2 py-1.5" onClick={() => onEdit(account)}>
+          Editar
+        </DropdownMenuItem>
+        <DropdownMenuItem className="rounded-lg px-2 py-1.5" onClick={() => onToggleArchive(account)}>
           {account.archived ? 'Desarchivar' : 'Archivar'}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onRecalculate(account)} disabled={isRecalculating}>
+        <DropdownMenuItem
+          className="rounded-lg px-2 py-1.5"
+          onClick={() => onRecalculate(account)}
+          disabled={isRecalculating}
+        >
           {isRecalculating ? 'Recalculando...' : 'Recalcular saldo'}
         </DropdownMenuItem>
       </DropdownMenuContent>

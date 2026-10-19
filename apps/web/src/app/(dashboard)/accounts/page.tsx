@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'motion/react';
 import { useState } from 'react';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
@@ -7,6 +8,7 @@ import { Plus } from 'lucide-react';
 import { AccountCard } from '@/components/accounts/AccountCard';
 import { AccountFormModal } from '@/components/accounts/AccountFormModal';
 import { Button } from '@/components/ui/button';
+import { Animated } from '@/components/ui/motion';
 import {
   useAccounts,
   useCreateAccount,
@@ -89,40 +91,62 @@ export default function AccountsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <Animated variant="fadeIn" className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold text-foreground">Cuentas</h2>
-          <p className="text-sm text-muted-foreground">Gestioná tus cuentas y saldos.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Cuentas</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Gestioná tus cuentas y saldos.</p>
         </div>
-        <Button onClick={openCreateModal}>
+        <Button
+          onClick={openCreateModal}
+          className="shadow-md shadow-primary/15 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20"
+        >
           <Plus aria-hidden="true" className="mr-2 h-4 w-4" />
           Nueva cuenta
         </Button>
-      </div>
+      </Animated>
 
-      <div className="flex gap-2" aria-label="Filtrar cuentas">
-        <Button
+      <div className="relative inline-flex rounded-xl border border-border bg-muted p-1" aria-label="Filtrar cuentas">
+        {!archived && (
+          <motion.div
+            layoutId="accounts-toggle"
+            className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-lg bg-background shadow-sm"
+            transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+          />
+        )}
+        {archived && (
+          <motion.div
+            layoutId="accounts-toggle"
+            className="absolute inset-y-1 right-1 w-[calc(50%-0.25rem)] rounded-lg bg-background shadow-sm"
+            transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+          />
+        )}
+
+        <button
           type="button"
-          variant={archived ? 'outline' : 'default'}
+          className={`relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            !archived ? 'text-foreground' : 'text-muted-foreground'
+          }`}
           aria-pressed={!archived}
           onClick={() => setArchived(false)}
         >
           Activas
-        </Button>
-        <Button
+        </button>
+        <button
           type="button"
-          variant={archived ? 'default' : 'outline'}
+          className={`relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            archived ? 'text-foreground' : 'text-muted-foreground'
+          }`}
           aria-pressed={archived}
           onClick={() => setArchived(true)}
         >
           Archivadas
-        </Button>
+        </button>
       </div>
 
       {notice && (
         <p
           role={notice.isError ? 'alert' : 'status'}
-          className={`rounded-md p-3 text-sm ${
+          className={`rounded-xl p-3 text-sm ${
             notice.isError ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'
           }`}
         >

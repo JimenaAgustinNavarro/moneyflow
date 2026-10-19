@@ -9,6 +9,7 @@ import {
   Target,
   Wallet,
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -26,9 +27,9 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-border bg-card">
-      <div className="flex h-16 items-center border-b border-border px-6">
-        <span className="text-lg font-semibold text-moneyflow-primary">MoneyFlow</span>
+    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-border/80 bg-card/90 backdrop-blur-sm">
+      <div className="flex h-16 items-center border-b border-border/80 px-6">
+        <span className="text-lg font-semibold tracking-tight text-primary">MoneyFlow</span>
       </div>
       <nav aria-label="Navegación principal" className="flex-1 space-y-1 p-4">
         {navigationItems.map(({ href, label, icon: Icon, enabled }) => {
@@ -40,9 +41,9 @@ export function Sidebar() {
                 key={href}
                 aria-disabled="true"
                 title="Próximamente"
-                className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground opacity-50"
+                className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground opacity-50"
               >
-                <Icon aria-hidden="true" size={18} />
+                <Icon aria-hidden="true" size={18} className="opacity-80" />
                 {label}
               </span>
             );
@@ -53,14 +54,21 @@ export function Sidebar() {
               key={href}
               href={href}
               aria-current={isActive ? 'page' : undefined}
-              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                isActive
-                  ? 'bg-moneyflow-primary/10 font-medium text-moneyflow-primary'
-                  : 'text-foreground hover:bg-accent'
-              }`}
+              className="group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground transition-all duration-200 hover:translate-x-0.5 hover:bg-accent/80"
             >
-              <Icon aria-hidden="true" size={18} />
-              {label}
+              {isActive && (
+                <motion.span
+                  layoutId="sidebar-active"
+                  className="absolute inset-0 rounded-xl bg-primary/10 ring-1 ring-primary/10"
+                  transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                />
+              )}
+              <Icon
+                aria-hidden="true"
+                size={18}
+                className="relative z-10 transition-transform duration-200 group-hover:scale-110"
+              />
+              <span className="relative z-10 font-medium">{label}</span>
             </Link>
           );
         })}

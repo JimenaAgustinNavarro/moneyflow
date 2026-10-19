@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Animated } from '@/components/ui/motion';
 import { ApiError } from '@/lib/api-client';
 import type { Account, CreateAccountInput, UpdateAccountInput } from '@/types/account';
 
@@ -47,17 +48,21 @@ export function AccountFormModal({
 }: AccountFormModalProps) {
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      {account ? (
-        <EditAccountForm
-          key={account.id}
-          account={account}
-          open={open}
-          onClose={onClose}
-          onSubmit={onSubmitEdit}
-        />
-      ) : (
-        <CreateAccountForm open={open} onClose={onClose} onSubmit={onSubmitCreate} />
-      )}
+      <DialogContent className="overflow-hidden rounded-2xl border border-border bg-background p-0 shadow-xl shadow-foreground/10">
+        <Animated variant="scaleIn" className="p-6">
+          {account ? (
+            <EditAccountForm
+              key={account.id}
+              account={account}
+              open={open}
+              onClose={onClose}
+              onSubmit={onSubmitEdit}
+            />
+          ) : (
+            <CreateAccountForm open={open} onClose={onClose} onSubmit={onSubmitCreate} />
+          )}
+        </Animated>
+      </DialogContent>
     </Dialog>
   );
 }
@@ -98,28 +103,36 @@ function CreateAccountForm({
   const { errors } = form.formState;
 
   return (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Nueva cuenta</DialogTitle>
+    <>
+      <DialogHeader className="mb-4">
+        <DialogTitle className="text-xl font-semibold tracking-tight">Nueva cuenta</DialogTitle>
       </DialogHeader>
       <form onSubmit={submit} className="space-y-4" noValidate>
         {serverError && (
-          <p role="alert" className="text-sm text-destructive">
+          <Animated variant="fadeIn" role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {serverError}
-          </p>
+          </Animated>
         )}
         <div className="space-y-2">
           <Label htmlFor="create-account-name">Nombre</Label>
-          <Input id="create-account-name" {...form.register('name')} />
+          <Input
+            id="create-account-name"
+            {...form.register('name')}
+            className="rounded-xl border-input bg-background/80 shadow-sm transition-all focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
+          />
           {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
-        <AccountTypeField id="create-account-type" registration={form.register('type')} />
+        <AccountTypeField
+          id="create-account-type"
+          registration={form.register('type')}
+        />
         <div className="space-y-2">
           <Label htmlFor="create-account-balance">Saldo inicial</Label>
           <Input
             id="create-account-balance"
             inputMode="decimal"
             {...form.register('initialBalance')}
+            className="rounded-xl border-input bg-background/80 shadow-sm transition-all focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
           />
           {errors.initialBalance && (
             <p className="text-xs text-destructive">{errors.initialBalance.message}</p>
@@ -127,7 +140,12 @@ function CreateAccountForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="create-account-currency">Moneda</Label>
-          <Input id="create-account-currency" maxLength={3} {...form.register('currency')} />
+          <Input
+            id="create-account-currency"
+            maxLength={3}
+            {...form.register('currency')}
+            className="rounded-xl border-input bg-background/80 shadow-sm transition-all focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
+          />
           {errors.currency && <p className="text-xs text-destructive">{errors.currency.message}</p>}
         </div>
         <FormButtons
@@ -136,7 +154,7 @@ function CreateAccountForm({
           submitLabel="Crear cuenta"
         />
       </form>
-    </DialogContent>
+    </>
   );
 }
 
@@ -180,19 +198,23 @@ function EditAccountForm({
   const { errors } = form.formState;
 
   return (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Editar cuenta</DialogTitle>
+    <>
+      <DialogHeader className="mb-4">
+        <DialogTitle className="text-xl font-semibold tracking-tight">Editar cuenta</DialogTitle>
       </DialogHeader>
       <form onSubmit={submit} className="space-y-4" noValidate>
         {serverError && (
-          <p role="alert" className="text-sm text-destructive">
+          <Animated variant="fadeIn" role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {serverError}
-          </p>
+          </Animated>
         )}
         <div className="space-y-2">
           <Label htmlFor="edit-account-name">Nombre</Label>
-          <Input id="edit-account-name" {...form.register('name')} />
+          <Input
+            id="edit-account-name"
+            {...form.register('name')}
+            className="rounded-xl border-input bg-background/80 shadow-sm transition-all focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
+          />
           {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
         <AccountTypeField id="edit-account-type" registration={form.register('type')} />
@@ -202,7 +224,7 @@ function EditAccountForm({
           submitLabel="Guardar"
         />
       </form>
-    </DialogContent>
+    </>
   );
 }
 
@@ -219,7 +241,7 @@ function AccountTypeField({
       <select
         id={id}
         {...registration}
-        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+        className="w-full rounded-xl border border-input bg-background/80 px-3 py-2.5 text-sm text-foreground shadow-sm transition-all focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
       >
         <option value="CASH">Efectivo</option>
         <option value="BANK">Banco</option>
@@ -240,11 +262,15 @@ function FormButtons({
   submitLabel: string;
 }) {
   return (
-    <div className="flex justify-end gap-2">
+    <div className="flex justify-end gap-2 pt-2">
       <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
         Cancelar
       </Button>
-      <Button type="submit" disabled={isSubmitting}>
+      <Button
+        type="submit"
+        disabled={isSubmitting}
+        className="shadow-md shadow-primary/15 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20"
+      >
         {isSubmitting ? 'Guardando...' : submitLabel}
       </Button>
     </div>
