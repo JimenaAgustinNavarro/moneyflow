@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { authenticatedRequest } from '@/lib/api-client';
 
 type AuthenticatedUserResponse = {
@@ -45,6 +47,10 @@ export default function DashboardPage() {
         </h2>
         <p className="text-sm text-muted-foreground">Este es tu resumen financiero.</p>
       </div>
+
+      <Button asChild>
+        <Link href="/accounts">Ver cuentas</Link>
+      </Button>
 
       {loadError && (
         <p

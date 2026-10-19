@@ -574,6 +574,8 @@ Reglas de negocio:
 
 deletedAt = null.
 
+Este endpoint se usará desde la interfaz en MF-16 (vista de cuentas eliminadas).
+
 Se valida que no haya conflicto de unicidad.
 
 3.7 POST /accounts/:id/recalculate

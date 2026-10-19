@@ -79,9 +79,9 @@ describe('api-client', () => {
     });
   });
 
-  it('loginUser resuelve 409 con el mensaje de email duplicado', async () => {
+  it('loginUser usa el mensaje del backend para un 409', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ message: 'Conflict' }), {
+      new Response(JSON.stringify({ message: 'El email ya está registrado' }), {
         status: 409,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -94,6 +94,24 @@ describe('api-client', () => {
     ).rejects.toMatchObject({
       status: 409,
       message: 'El email ya está registrado',
+    });
+  });
+
+  it('usa un mensaje genérico para un 409 sin mensaje del backend', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const { loginUser } = await import('@/lib/api-client');
+
+    await expect(
+      loginUser({ email: 'ana@example.com', password: '12345678' }),
+    ).rejects.toMatchObject({
+      status: 409,
+      message: 'El recurso ya existe.',
     });
   });
 

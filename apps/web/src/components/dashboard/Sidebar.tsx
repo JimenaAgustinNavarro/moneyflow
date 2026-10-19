@@ -14,7 +14,7 @@ import { usePathname } from 'next/navigation';
 
 const navigationItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, enabled: true },
-  { href: '/accounts', label: 'Cuentas', icon: Wallet, enabled: false },
+  { href: '/accounts', label: 'Cuentas', icon: Wallet, enabled: true },
   { href: '/categories', label: 'Categorías', icon: Tag, enabled: false },
   { href: '/transactions', label: 'Movimientos', icon: ArrowLeftRight, enabled: false },
   { href: '/budgets', label: 'Presupuestos', icon: PiggyBank, enabled: false },

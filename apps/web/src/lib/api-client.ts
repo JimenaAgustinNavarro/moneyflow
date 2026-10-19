@@ -44,7 +44,7 @@ function getFriendlyErrorMessage(status: number, payload: unknown): string {
   }
 
   if (status === 409) {
-    return 'El email ya está registrado';
+    return message || 'El recurso ya existe.';
   }
 
   return message || 'Error de conexión';
