@@ -8,6 +8,8 @@ const hooks = vi.hoisted(() => ({
   useCreateTransaction: vi.fn(),
   useUpdateTransaction: vi.fn(),
   useDeleteTransaction: vi.fn(),
+  useCreateTransfer: vi.fn(),
+  useDeleteTransfer: vi.fn(),
 }));
 
 vi.mock('@/hooks/useAccounts', () => ({ useAccounts: hooks.useAccounts }));
@@ -17,6 +19,10 @@ vi.mock('@/hooks/useTransactions', () => ({
   useCreateTransaction: hooks.useCreateTransaction,
   useUpdateTransaction: hooks.useUpdateTransaction,
   useDeleteTransaction: hooks.useDeleteTransaction,
+}));
+vi.mock('@/hooks/useTransfers', () => ({
+  useCreateTransfer: hooks.useCreateTransfer,
+  useDeleteTransfer: hooks.useDeleteTransfer,
 }));
 
 import TransactionsPage from './page';
@@ -64,6 +70,17 @@ const transaction: Transaction = {
   updatedAt: '2026-10-23T10:00:00.000Z',
 };
 
+const transferTransaction: Transaction = {
+  ...transaction,
+  id: 'transfer-leg-1',
+  categoryId: null,
+  type: 'TRANSFER',
+  transferId: 'transfer-1',
+  counterpartAccountId: 'account-2',
+  description: 'Ahorro',
+  amount: '50.00',
+};
+
 function renderPage() {
   return render(<TransactionsPage />);
 }
@@ -94,6 +111,12 @@ describe('TransactionsPage', () => {
       .mockReset()
       .mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(transaction) });
     hooks.useDeleteTransaction
+      .mockReset()
+      .mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false });
+    hooks.useCreateTransfer
+      .mockReset()
+      .mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({ transferId: 'transfer-1' }) });
+    hooks.useDeleteTransfer
       .mockReset()
       .mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false });
   });
@@ -134,6 +157,49 @@ describe('TransactionsPage', () => {
     const row = screen.getByRole('row', { name: /Almuerzo/ });
     expect(within(row).getByText('Cuenta principal')).toBeInTheDocument();
     expect(within(row).getByText('Alimentación')).toBeInTheDocument();
+  });
+
+  it('abre el modal para crear una transferencia', async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nueva transferencia' }));
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Nueva transferencia' })).toBeInTheDocument();
+  });
+
+  it('confirma el borrado bilateral usando transferId y deja intacto el borrado normal', async () => {
+    hooks.useTransactions.mockReturnValue({
+      data: {
+        data: [transferTransaction, transaction],
+        meta: { page: 1, limit: 20, total: 2, totalPages: 1 },
+      },
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+      isFetching: false,
+    });
+    const transferDelete = vi.fn().mockResolvedValue(undefined);
+    const transactionDelete = vi.fn().mockResolvedValue(undefined);
+    hooks.useDeleteTransfer.mockReturnValue({ mutateAsync: transferDelete, isPending: false });
+    hooks.useDeleteTransaction.mockReturnValue({
+      mutateAsync: transactionDelete,
+      isPending: false,
+    });
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Borrar transferencia' }));
+    const transferDialog = await screen.findByRole('dialog', { name: 'Eliminar transferencia' });
+    expect(transferDialog).toHaveTextContent('Se eliminarán ambas partes');
+    fireEvent.click(within(transferDialog).getByRole('button', { name: 'Eliminar transferencia' }));
+
+    await waitFor(() => expect(transferDelete).toHaveBeenCalledWith('transfer-1'));
+    expect(transactionDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar movimiento' }));
+    const transactionDialog = await screen.findByRole('dialog', { name: 'Eliminar movimiento' });
+    fireEvent.click(within(transactionDialog).getByRole('button', { name: 'Eliminar' }));
+    await waitFor(() => expect(transactionDelete).toHaveBeenCalledWith(transaction.id));
   });
 
   it('avanza de página y reinicia la paginación al cambiar un filtro', async () => {

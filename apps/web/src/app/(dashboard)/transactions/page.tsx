@@ -6,6 +6,7 @@ import { Plus } from 'lucide-react';
 import { TransactionFormModal } from '@/components/transactions/TransactionFormModal';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { TransactionFilters } from '@/components/transactions/TransactionFilters';
+import { TransferModal } from '@/components/transfers/TransferModal';
 import { Button } from '@/components/ui/button';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { useAccounts } from '@/hooks/useAccounts';
@@ -16,6 +17,7 @@ import {
   useUpdateTransaction,
 } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
+import { useCreateTransfer, useDeleteTransfer } from '@/hooks/useTransfers';
 import { ApiError } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/format-currency';
 import type {
@@ -24,6 +26,7 @@ import type {
   TransactionFilters as Filters,
   UpdateTransactionInput,
 } from '@/types/transaction';
+import type { CreateTransferInput } from '@/types/transfer';
 
 const PAGE_SIZE = 20;
 
@@ -31,8 +34,10 @@ export default function TransactionsPage() {
   const [filterValues, setFilterValues] = useState<Omit<Filters, 'page' | 'limit'>>({});
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Transaction | null>(null);
+  const [pendingDeleteTransfer, setPendingDeleteTransfer] = useState<Transaction | null>(null);
   const [notice, setNotice] = useState<{ message: string; isError: boolean } | null>(null);
 
   useEffect(() => {
@@ -52,6 +57,8 @@ export default function TransactionsPage() {
   const createTransaction = useCreateTransaction();
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();
+  const createTransfer = useCreateTransfer();
+  const deleteTransfer = useDeleteTransfer();
 
   const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
   const categories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
@@ -76,6 +83,11 @@ export default function TransactionsPage() {
     setNotice({ message: 'Movimiento creado.', isError: false });
   };
 
+  const handleCreateTransfer = async (input: CreateTransferInput) => {
+    await createTransfer.mutateAsync(input);
+    setNotice({ message: 'Transferencia creada.', isError: false });
+  };
+
   const handleEdit = async (input: UpdateTransactionInput) => {
     if (!editing) return;
     await updateTransaction.mutateAsync({ id: editing.id, input });
@@ -95,6 +107,38 @@ export default function TransactionsPage() {
     }
   };
 
+  const handleDeleteTransfer = (transaction: Transaction) => {
+    if (!transaction.transferId) {
+      setNotice({
+        message: 'No se puede eliminar la transferencia porque falta su identificador.',
+        isError: true,
+      });
+      return;
+    }
+    setPendingDeleteTransfer(transaction);
+  };
+
+  const confirmDeleteTransfer = async () => {
+    const transferId = pendingDeleteTransfer?.transferId;
+    if (!transferId) {
+      setNotice({
+        message: 'No se puede eliminar la transferencia porque falta su identificador.',
+        isError: true,
+      });
+      setPendingDeleteTransfer(null);
+      return;
+    }
+
+    try {
+      await deleteTransfer.mutateAsync(transferId);
+      setNotice({ message: 'Transferencia eliminada.', isError: false });
+    } catch (error) {
+      showError(error, 'No se pudo eliminar la transferencia.');
+    } finally {
+      setPendingDeleteTransfer(null);
+    }
+  };
+
   const transactions = transactionsQuery.data?.data ?? [];
   const meta = transactionsQuery.data?.meta;
 
@@ -107,16 +151,22 @@ export default function TransactionsPage() {
             Registra y consulta tus ingresos y egresos.
           </p>
         </div>
-        <Button
-          type="button"
-          onClick={() => {
-            setEditing(null);
-            setModalOpen(true);
-          }}
-        >
-          <Plus aria-hidden="true" className="mr-2 h-4 w-4" />
-          Nuevo movimiento
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={() => setTransferModalOpen(true)}>
+            <Plus aria-hidden="true" className="mr-2 h-4 w-4" />
+            Nueva transferencia
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setModalOpen(true);
+            }}
+          >
+            <Plus aria-hidden="true" className="mr-2 h-4 w-4" />
+            Nuevo movimiento
+          </Button>
+        </div>
       </div>
 
       {notice && (
@@ -183,6 +233,7 @@ export default function TransactionsPage() {
             setModalOpen(true);
           }}
           onDelete={setPendingDelete}
+          onDeleteTransfer={handleDeleteTransfer}
         />
       )}
 
@@ -225,6 +276,13 @@ export default function TransactionsPage() {
         editing={editing}
       />
 
+      <TransferModal
+        open={transferModalOpen}
+        onClose={() => setTransferModalOpen(false)}
+        onSubmit={handleCreateTransfer}
+        accounts={accounts}
+      />
+
       <ConfirmationModal
         open={Boolean(pendingDelete)}
         onOpenChange={(isOpen) => !isOpen && setPendingDelete(null)}
@@ -237,6 +295,22 @@ export default function TransactionsPage() {
         onConfirm={confirmDelete}
         variant="destructive"
         isLoading={deleteTransaction.isPending}
+      />
+
+      <ConfirmationModal
+        open={Boolean(pendingDeleteTransfer)}
+        onOpenChange={(isOpen) => !isOpen && setPendingDeleteTransfer(null)}
+        title="Eliminar transferencia"
+        description={`¿Seguro que quieres eliminar esta transferencia de ${
+          pendingDeleteTransfer
+            ? formatCurrency(pendingDeleteTransfer.amount, pendingDeleteTransfer.currency)
+            : ''
+        }? Se eliminarán ambas partes y se revertirán los saldos de las cuentas.`}
+        confirmLabel="Eliminar transferencia"
+        cancelLabel="Cancelar"
+        onConfirm={confirmDeleteTransfer}
+        variant="destructive"
+        isLoading={deleteTransfer.isPending}
       />
     </div>
   );

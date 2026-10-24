@@ -30,6 +30,7 @@ interface TransactionListProps {
   accountNameById: Record<string, string>;
   onEdit: (transaction: Transaction) => void;
   onDelete: (transaction: Transaction) => void;
+  onDeleteTransfer: (transaction: Transaction) => void;
 }
 
 export function TransactionList({
@@ -38,6 +39,7 @@ export function TransactionList({
   accountNameById,
   onEdit,
   onDelete,
+  onDeleteTransfer,
 }: TransactionListProps) {
   if (transactions.length === 0) {
     return (
@@ -112,31 +114,25 @@ export function TransactionList({
                 </td>
                 <td className="px-3 py-3 text-right">
                   <div className="flex justify-end gap-1">
+                    {!isTransfer && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEdit(transaction)}
+                        aria-label="Editar movimiento"
+                      >
+                        <Pencil aria-hidden="true" className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      onClick={() => onEdit(transaction)}
-                      aria-label="Editar movimiento"
-                      title={
-                        isTransfer ? 'Las transferencias no se pueden editar aquí.' : undefined
+                      onClick={() =>
+                        isTransfer ? onDeleteTransfer(transaction) : onDelete(transaction)
                       }
-                      disabled={isTransfer}
-                    >
-                      <Pencil aria-hidden="true" className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDelete(transaction)}
-                      aria-label="Eliminar movimiento"
-                      title={
-                        isTransfer
-                          ? 'Elimina la transferencia desde su gestión específica.'
-                          : undefined
-                      }
-                      disabled={isTransfer}
+                      aria-label={isTransfer ? 'Borrar transferencia' : 'Eliminar movimiento'}
                     >
                       <Trash2 aria-hidden="true" className="h-4 w-4" />
                     </Button>

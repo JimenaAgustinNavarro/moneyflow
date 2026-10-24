@@ -25,6 +25,7 @@ const transaction: Transaction = {
 function renderList(transactions = [transaction]) {
   const onEdit = vi.fn();
   const onDelete = vi.fn();
+  const onDeleteTransfer = vi.fn();
   const result = render(
     <TransactionList
       transactions={transactions}
@@ -32,10 +33,11 @@ function renderList(transactions = [transaction]) {
       accountNameById={{ 'account-1': 'Cuenta principal' }}
       onEdit={onEdit}
       onDelete={onDelete}
+      onDeleteTransfer={onDeleteTransfer}
     />,
   );
 
-  return { ...result, onEdit, onDelete };
+  return { ...result, onEdit, onDelete, onDeleteTransfer };
 }
 
 describe('TransactionList', () => {
@@ -59,19 +61,33 @@ describe('TransactionList', () => {
     expect(onDelete).toHaveBeenCalledWith(transaction);
   });
 
-  it('muestra transferencias con un badge azul genérico y bloquea las acciones individuales', () => {
+  it('muestra transferencia con badge azul, sin editar, y llama el borrado bilateral', () => {
     const transfer: Transaction = {
       ...transaction,
       type: 'TRANSFER',
       transferId: 'transfer-1',
       categoryId: null,
     };
-    renderList([transfer]);
+    const { onEdit, onDelete, onDeleteTransfer } = renderList([transfer]);
 
     const row = screen.getByRole('row', { name: /Transferencia/ });
     expect(within(row).getByText('Transferencia')).toHaveClass('bg-blue-100');
-    expect(screen.getByRole('button', { name: 'Editar movimiento' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Eliminar movimiento' })).toBeDisabled();
+    expect(
+      within(row).queryByRole('button', { name: 'Editar movimiento' }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(within(row).getByRole('button', { name: 'Borrar transferencia' }));
+    expect(onDeleteTransfer).toHaveBeenCalledWith(transfer);
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it('mantiene el borrado normal para ingresos y egresos', () => {
+    const { onDelete, onDeleteTransfer } = renderList();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar movimiento' }));
+
+    expect(onDelete).toHaveBeenCalledWith(transaction);
+    expect(onDeleteTransfer).not.toHaveBeenCalled();
   });
 
   it('muestra el estado vacío', () => {
