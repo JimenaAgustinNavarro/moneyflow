@@ -147,6 +147,7 @@ currency	String	@default("PEN")	ISO 4217
 description	String?	—	—
 date	DateTime	@db.Timestamptz(6)	Fecha del movimiento
 status	TransactionStatus	@default(CONFIRMED)	PENDING, CONFIRMED, CANCELLED
+direction	String?	@db.VarChar(10)	'IN'/'OUT' para transferencias; NULL para INCOME/EXPENSE
 transferId	String?	—	Agrupa las 2 patas de una transferencia
 counterpartAccountId	String?	FK → accounts.id, onDelete: SetNull	Cuenta destino en transferencias
 obligationId	String?	FK → obligations.id, onDelete: SetNull	Obligación pagada
@@ -164,6 +165,8 @@ Constraints:
 @@index([transferId]).
 
 @@index([obligationId]).
+
+CHECK: `direction IN ('IN', 'OUT') OR direction IS NULL` (agregado en la migración SQL).
 
 Map: @@map("transactions").
 

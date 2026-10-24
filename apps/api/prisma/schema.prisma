@@ -153,6 +153,7 @@ model Transaction {
   description          String?
   date                 DateTime           @db.Timestamptz(6)
   status               TransactionStatus  @default(CONFIRMED)
+  direction            String?            @map("direction") @db.VarChar(10)
   transferId           String?            @map("transfer_id")
   counterpartAccountId String?            @map("counterpart_account_id")
   obligationId         String?            @map("obligation_id")

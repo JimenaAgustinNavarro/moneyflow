@@ -815,9 +815,9 @@ usuario → 404.
 
 ### AC-TRF-05 — Afecta saldos correctamente
 
-**Enunciado:** crear transferencia → `origin.balance -= amount`, `destination.balance += amount`.
+**Enunciado:** crear transferencia → crea una pata `OUT` y otra `IN`, actualizando `origin.balance -= amount` y `destination.balance += amount`. `recalculate` debe reproducir el mismo balance a partir de `direction`.
 
-**Verificación:** crear transferencia de 500 entre 2 cuentas → `GET /accounts` → `origin.balance` disminuido, `destination.balance` aumentado.
+**Verificación:** crear transferencia de 500 entre 2 cuentas → `GET /accounts` → `origin.balance` disminuido, `destination.balance` aumentado; ejecutar `recalculate` conserva ambos saldos.
 
 **Tipo:** integration.
 
@@ -831,17 +831,17 @@ usuario → 404.
 
 ### AC-TRF-07 — Transferencia crea 2 movimientos enlazados
 
-**Enunciado:** al crear una transferencia, se crean 2 filas en `transactions` con el mismo `transferId`.
+**Enunciado:** al crear una transferencia, se crean 2 filas en `transactions` con el mismo `transferId`; la pata de origen lleva `direction: "OUT"` y la pata destino `direction: "IN"`.
 
-**Verificación:** `POST /transfers` → `GET /transactions?includeDeleted=true` → 2 movimientos con el mismo `transferId`.
+**Verificación:** `POST /transfers` → `data.origin` y `data.destination` contienen el mismo `transferId` y directions complementarias (`OUT` y `IN`).
 
 **Tipo:** integration.
 
 ### AC-TRF-08 — Borrar transferencia
 
-**Enunciado:** `DELETE /transfers/:transferId` borra las 2 patas.
+**Enunciado:** `DELETE /transfers/:transferId` borra las 2 patas y revierte ambos saldos. FIX-TRANSFER-02 resuelto por MF-20.
 
-**Verificación:** crear transferencia → `DELETE /transfers/:transferId` → 204, ambas patas con `deletedAt`.
+**Verificación:** crear transferencia → `DELETE /transfers/:transferId` → 204, ambas patas con `deletedAt` y saldos originales restaurados. Si no hay exactamente dos patas activas, responde 404 sin cambiar balances.
 
 **Tipo:** integration.
 

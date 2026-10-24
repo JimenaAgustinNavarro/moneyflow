@@ -254,8 +254,8 @@ text
 ### 4.1 Modelo
 
 Una transferencia se modela como **dos movimientos enlazados** por un `transferId` compartido:
-- Pata origen: `type = TRANSFER`, `accountId = cuenta_origen`, `counterpartAccountId = cuenta_destino`, `amount` positivo.
-- Pata destino: `type = TRANSFER`, `accountId = cuenta_destino`, `counterpartAccountId = cuenta_origen`, `amount` positivo.
+- Pata origen: `type = TRANSFER`, `accountId = cuenta_origen`, `counterpartAccountId = cuenta_destino`, `amount` positivo y `direction = 'OUT'`.
+- Pata destino: `type = TRANSFER`, `accountId = cuenta_destino`, `counterpartAccountId = cuenta_origen`, `amount` positivo y `direction = 'IN'`.
 
 **Ambas patas tienen el mismo `transferId`, `amount`, `date` y `status`.**
 
@@ -278,7 +278,7 @@ Una transferencia se modela como **dos movimientos enlazados** por un `transferI
 
 ### 4.4 Edición y borrado
 
-- **Editar:** se editan ambas patas en una transacción.
+- **Editar:** se editarán ambas patas en una transacción en una tarjeta futura (FIX-TRANSFER-03); no forma parte de MF-20.
 - **Borrar:** se borran ambas patas por `transferId`.
 
 ---

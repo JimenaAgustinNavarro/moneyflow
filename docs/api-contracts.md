@@ -1028,6 +1028,11 @@ originAccountId y destinationAccountId: distintas, del mismo usuario.
 
 amount: > 0.
 
+date: obligatorio, formato ISO 8601 con zona horaria y no puede ser futura.
+
+Las cuentas deben estar activas y no archivadas. Una cuenta archivada responde
+400; una cuenta eliminada o que no pertenece al usuario responde 404.
+
 Misma moneda (en MVP, siempre PEN).
 
 Response (201):
@@ -1066,6 +1071,9 @@ domain-rules.md sección 4: se crean dos movimientos enlazados con transferId co
 
 domain-rules.md sección 4.3: las transferencias no cuentan como ingreso ni egreso.
 
+La pata origen usa `direction: "OUT"` y la pata destino usa `direction: "IN"`.
+Ambas patas quedan `CONFIRMED` y actualizan los saldos de sus cuentas.
+
 Toda la operación en una transacción de BD.
 
 5.8 DELETE /transfers/:transferId
@@ -1083,7 +1091,10 @@ Reglas de negocio:
 
 domain-rules.md sección 4.4: se borran ambas patas por transferId.
 
-Recalcula balance de las 2 cuentas.
+Solo se revierte el saldo y se eliminan ambas patas si existen exactamente dos
+movimientos activos y consistentes para el usuario y `transferId`; en caso
+contrario responde 404 sin modificar saldos. La edición bilateral se pospone
+(FIX-TRANSFER-03).
 
 ---
 

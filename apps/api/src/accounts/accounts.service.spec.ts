@@ -333,7 +333,7 @@ describe('AccountsService', () => {
   });
 
   describe('recalculate', () => {
-    it('usa solo movimientos confirmados income y expense y conserva saldo inicial', async () => {
+    it('conserva saldo inicial si no hay movimientos confirmados', async () => {
       prisma.account.findFirst.mockResolvedValue(account);
       prisma.transaction.groupBy.mockResolvedValue([]);
       prisma.account.update.mockResolvedValue(account);
@@ -341,12 +341,12 @@ describe('AccountsService', () => {
       const result = await service.recalculate('user-1', 'account-1');
 
       expect(prisma.transaction.groupBy).toHaveBeenCalledWith({
-        by: ['type'],
+        by: ['type', 'direction'],
         where: {
           accountId: 'account-1',
           status: 'CONFIRMED',
           deletedAt: null,
-          type: { in: ['INCOME', 'EXPENSE'] },
+          type: { in: ['INCOME', 'EXPENSE', 'TRANSFER'] },
         },
         _sum: { amount: true },
       });
@@ -381,19 +381,69 @@ describe('AccountsService', () => {
       expect(result.balance).toBe('1400.15');
     });
 
-    it('trata sumas nulas como cero e ignora TRANSFER', async () => {
+    it('incluye transferencias IN y OUT en el saldo recalculado', async () => {
       prisma.account.findFirst.mockResolvedValue(account);
       prisma.transaction.groupBy.mockResolvedValue([
         { type: 'INCOME', _sum: { amount: null } },
-        { type: 'EXPENSE', _sum: { amount: new Prisma.Decimal('50') } },
+        {
+          type: 'TRANSFER',
+          direction: 'OUT',
+          _sum: { amount: new Prisma.Decimal('300') },
+        },
+        {
+          type: 'TRANSFER',
+          direction: 'IN',
+          _sum: { amount: new Prisma.Decimal('200') },
+        },
       ]);
       prisma.account.update.mockResolvedValue(account);
 
       const result = await service.recalculate('user-1', 'account-1');
 
-      expect(result.balance).toBe('950.00');
+      expect(result.balance).toBe('900.00');
+      expect(prisma.transaction.groupBy).toHaveBeenCalledWith({
+        by: ['type', 'direction'],
+        where: {
+          accountId: 'account-1',
+          status: 'CONFIRMED',
+          deletedAt: null,
+          type: { in: ['INCOME', 'EXPENSE', 'TRANSFER'] },
+        },
+        _sum: { amount: true },
+      });
+    });
+
+    it('mantiene consistencia con ingresos, egresos y transferencias', async () => {
+      prisma.account.findFirst.mockResolvedValue(account);
+      prisma.transaction.groupBy.mockResolvedValue([
+        {
+          type: 'INCOME',
+          direction: null,
+          _sum: { amount: new Prisma.Decimal('500') },
+        },
+        {
+          type: 'EXPENSE',
+          direction: null,
+          _sum: { amount: new Prisma.Decimal('100') },
+        },
+        {
+          type: 'TRANSFER',
+          direction: 'IN',
+          _sum: { amount: new Prisma.Decimal('200') },
+        },
+        {
+          type: 'TRANSFER',
+          direction: 'OUT',
+          _sum: { amount: new Prisma.Decimal('300') },
+        },
+      ]);
+      prisma.account.update.mockResolvedValue(account);
+
+      const result = await service.recalculate('user-1', 'account-1');
+
+      expect(result.balance).toBe('1300.00');
       const groupByWhere = prisma.transaction.groupBy.mock.calls[0][0].where;
-      expect(groupByWhere.type.in).toEqual(['INCOME', 'EXPENSE']);
+      expect(groupByWhere.type.in).toEqual(['INCOME', 'EXPENSE', 'TRANSFER']);
     });
 
     it('responde 404 para cuentas inexistentes o ajenas', async () => {

@@ -216,14 +216,13 @@ export class AccountsService {
       throw new NotFoundException('Cuenta no encontrada.');
     }
 
-    // TODO(FIX-TRANSFER-01, MF-20): calcular transferencias con direction.
     const groups = await this.prisma.transaction.groupBy({
-      by: ['type'],
+      by: ['type', 'direction'],
       where: {
         accountId: id,
         status: 'CONFIRMED',
         deletedAt: null,
-        type: { in: ['INCOME', 'EXPENSE'] },
+        type: { in: ['INCOME', 'EXPENSE', 'TRANSFER'] },
       },
       _sum: { amount: true },
     });
@@ -234,6 +233,10 @@ export class AccountsService {
       if (group.type === 'INCOME') {
         balance = balance.plus(amount);
       } else if (group.type === 'EXPENSE') {
+        balance = balance.minus(amount);
+      } else if (group.type === 'TRANSFER' && group.direction === 'IN') {
+        balance = balance.plus(amount);
+      } else if (group.type === 'TRANSFER' && group.direction === 'OUT') {
         balance = balance.minus(amount);
       }
     }
