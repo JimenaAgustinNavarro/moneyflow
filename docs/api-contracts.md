@@ -63,17 +63,26 @@ json
 }
 Errores (4xx, 5xx):
 
+Todas las respuestas de error HTTP usan el siguiente formato:
 
+```json
 {
   "statusCode": 404,
   "message": "Cuenta no encontrada.",
   "error": "Not Found",
-  "timestamp": "2026-10-16T14:30:00-05:00",
+  "timestamp": "2026-10-16T14:30:00.000-05:00",
   "path": "/api/v1/accounts/abc-123"
 }
+```
 
-
-
+- `message` es un string para errores simples y un array de strings para
+  errores de validación.
+- `timestamp` es una fecha ISO 8601 en la zona horaria `America/Lima`, con
+  offset `-05:00`.
+- `path` contiene la ruta solicitada sin parámetros de consulta.
+- Los errores no controlados responden con estado `500`, `message` genérico
+  `"Error interno del servidor"` y `error` `"Internal Server Error"`. No se
+  exponen mensajes internos ni stack traces en la respuesta.
 
 ### 0.4 Códigos de error estándar
 
