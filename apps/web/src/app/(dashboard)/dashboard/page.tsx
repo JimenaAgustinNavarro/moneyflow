@@ -56,9 +56,17 @@ export default function DashboardPage() {
           <p className="mt-1 text-sm text-muted-foreground">Este es tu resumen financiero.</p>
         </div>
 
-        <Button asChild className="shadow-md shadow-primary/15 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20">
-          <Link href="/accounts">Ver cuentas</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/categories">Ver categorías</Link>
+          </Button>
+          <Button
+            asChild
+            className="shadow-md shadow-primary/15 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20"
+          >
+            <Link href="/accounts">Ver cuentas</Link>
+          </Button>
+        </div>
       </Animated>
 
       {loadError && (

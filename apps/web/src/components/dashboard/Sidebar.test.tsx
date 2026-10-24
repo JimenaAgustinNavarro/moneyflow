@@ -8,13 +8,17 @@ vi.mock('next/navigation', () => ({
 import { Sidebar } from './Sidebar';
 
 describe('Sidebar', () => {
-  it('muestra Dashboard activo y Cuentas habilitada', () => {
+  it('muestra Dashboard y Cuentas activos, Categorías habilitada', () => {
     render(<Sidebar />);
 
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Cuentas' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Categorías' })).toHaveAttribute(
+      'href',
+      '/categories',
+    );
 
-    for (const label of ['Categorías', 'Movimientos', 'Presupuestos', 'Metas', 'Configuración']) {
+    for (const label of ['Movimientos', 'Presupuestos', 'Metas', 'Configuración']) {
       expect(screen.getByText(label)).toHaveAttribute('aria-disabled', 'true');
       expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument();
     }
