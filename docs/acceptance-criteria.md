@@ -853,6 +853,18 @@ usuario → 404.
 
 *Sin preguntas abiertas por el momento.*
 
+## 19. Deuda técnica de movimientos
+
+### FIX-TRANSACTIONS-01 — Exponer direction en movimientos
+
+Agregar `direction` al response de `GET /transactions` y mostrar las
+transferencias como patas `OUT`/`IN` en el frontend. No forma parte de MF-21.
+
+### FIX-TRANSACTIONS-02 — Filtro de estado en movimientos
+
+Agregar el filtro `status` (`PENDING`, `CONFIRMED`, `CANCELLED`) a
+`TransactionFilters`. No forma parte de MF-21.
+
 ---
 
 ## 9. Recurrences

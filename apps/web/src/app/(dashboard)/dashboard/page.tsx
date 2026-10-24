@@ -58,6 +58,9 @@ export default function DashboardPage() {
 
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
+            <Link href="/transactions">Ver movimientos</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link href="/categories">Ver categorías</Link>
           </Button>
           <Button
