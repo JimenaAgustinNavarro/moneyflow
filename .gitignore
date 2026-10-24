@@ -22,3 +22,5 @@ coverage/
 
 # Bases de datos SQLite de desarrollo de Prisma
 prisma/migrations/dev.db*
+
+*.tsbuildinfo
