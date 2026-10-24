@@ -848,9 +848,12 @@ Errores:
 
 Reglas de negocio:
 
-Filtra por userId del token.
+Filtra por `userId` del token. `type` acepta `INCOME`, `EXPENSE` o `TRANSFER`.
 
-Ordenado por date descendente.
+Ordenado por `date` descendente y, en caso de empate, `createdAt` descendente.
+
+`from` y `to` son inclusivos y se interpretan en `America/Lima`; `to` incluye
+el día completo. La paginación empieza en 1 y `limit` no puede superar 100.
 
 5.2 POST /transactions
 Descripción: Crear un movimiento (ingreso o egreso).
@@ -872,6 +875,9 @@ json
 Validaciones:
 
 accountId: debe pertenecer al usuario.
+
+La cuenta no puede estar archivada ni eliminada. Una cuenta archivada o una
+fecha futura devuelve 400; una cuenta eliminada o inaccesible devuelve 404.
 
 categoryId: debe pertenecer al usuario o ser del sistema, del tipo correcto.
 
@@ -914,6 +920,9 @@ domain-rules.md sección 2.4: actualiza accounts.balance en la misma transacció
 
 domain-rules.md sección 3.1: valida que amount > 0.
 
+Solo los movimientos `CONFIRMED` modifican el saldo. `PENDING` y `CANCELLED`
+no lo modifican. El status predeterminado es `CONFIRMED`.
+
 5.3 GET /transactions/:id
 Descripción: Obtener detalle de un movimiento.
 
@@ -950,11 +959,18 @@ Errores:
 
 404: movimiento no encontrado.
 
+409: se intenta cambiar `type` de un movimiento `CONFIRMED`.
+
 422: tipo de categoría no coincide.
 
 Reglas de negocio:
 
-domain-rules.md sección 3.2: recalcula accounts.balance si cambia accountId o amount o status.
+domain-rules.md sección 3.2: revierte el efecto anterior y aplica el nuevo
+efecto de saldo si cambia `accountId`, `amount`, `type` o `status`.
+
+`type` solo puede cambiar si el movimiento está `PENDING` o `CANCELLED`.
+Si cambia `accountId`, la cuenta destino debe pertenecer al usuario y no estar
+archivada ni eliminada; la moneda del movimiento pasa a ser la de esa cuenta.
 
 Toda la operación en una transacción de BD.
 
@@ -973,9 +989,10 @@ Reglas de negocio:
 
 domain-rules.md sección 3.3: recalcula accounts.balance.
 
-Si el movimiento tiene obligationId, la obligación pasa de PAID a PENDING.
-
-Si es transferencia, se borran ambas patas por transferId.
+MF-19 elimina únicamente este movimiento y revierte su efecto si está
+`CONFIRMED`. El manejo de transferencias vinculadas (`transferId`) se pospone
+a MF-20 (FIX-TRANSFER-02); el cambio de estado de obligaciones vinculadas
+(`obligationId`) se pospone hasta implementar obligations (FIX-OBLIGATION-01).
 
 5.6 POST /transactions/:id/restore
 Descripción: Restaurar un movimiento borrado.

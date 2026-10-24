@@ -763,17 +763,17 @@ usuario → 404.
 
 ### AC-TRX-19 — Borrar movimiento con obligación vinculada
 
-**Enunciado:** `DELETE /transactions/:id` de un movimiento con `obligationId` → la obligación pasa de `PAID` a `PENDING`.
+**Enunciado:** (pospuesto; fuera del alcance de MF-19) `DELETE /transactions/:id` de un movimiento con `obligationId` → la obligación pasa de `PAID` a `PENDING`. Se implementará junto con obligations (FIX-OBLIGATION-01).
 
-**Verificación:** pagar obligación → `DELETE` movimiento → `GET /obligations/:id` → `status: "PENDING"`.
+**Verificación futura:** pagar obligación → `DELETE` movimiento → `GET /obligations/:id` → `status: "PENDING"`.
 
 **Tipo:** integration.
 
 ### AC-TRX-20 — Borrar transferencia borra ambas patas
 
-**Enunciado:** `DELETE /transfers/:transferId` borra las 2 patas de la transferencia.
+**Enunciado:** (pospuesto; fuera del alcance de MF-19) `DELETE /transfers/:transferId` borra las 2 patas de la transferencia. Se implementará en MF-20 (FIX-TRANSFER-02).
 
-**Verificación:** crear transferencia → `DELETE /transfers/:transferId` → `GET /transactions?includeDeleted=true` → ambas patas con `deletedAt`.
+**Verificación futura:** crear transferencia → `DELETE /transfers/:transferId` → `GET /transactions?includeDeleted=true` → ambas patas con `deletedAt`.
 
 **Tipo:** integration.
 
