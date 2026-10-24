@@ -613,7 +613,10 @@ Query params:
 
 type (opcional): INCOME | EXPENSE.
 
-includeDeleted (opcional): true.
+includeDeleted (opcional): true | false (default false).
+
+Los valores distintos de INCOME/EXPENSE para type o de true/false para
+includeDeleted devuelven 400.
 
 Response (200):
 
@@ -663,6 +666,10 @@ type: INCOME | EXPENSE.
 
 parentId: opcional. Si viene, debe ser una categoría del usuario o del sistema, del mismo tipo.
 
+La categoría padre debe estar activa, ser accesible y no tener otro padre.
+Si no existe, está eliminada o no es accesible, se devuelve 404. Si ya tiene un padre o
+su type no coincide, se devuelve 422.
+
 icon: opcional, string.
 
 color: opcional, hex.
@@ -674,6 +681,10 @@ Errores:
 400: validación fallida.
 
 409: nombre duplicado.
+
+404: categoría padre no encontrada o no accesible.
+
+422: jerarquía superior a 2 niveles o type distinto al del padre.
 
 Reglas de negocio:
 
@@ -717,6 +728,8 @@ Errores:
 
 400: validación fallida.
 
+403: categoría del sistema.
+
 404: categoría no encontrada.
 
 409: nombre duplicado.
@@ -736,11 +749,17 @@ Errores:
 
 409: categoría con movimientos CONFIRMED (reasignar primero).
 
+409: categoría con subcategorías activas.
+
 Reglas de negocio:
 
 domain-rules.md sección 6.5: no se puede borrar una categoría del sistema.
 
-Si la categoría tiene movimientos, error 409 (reasignar primero).
+Si la categoría tiene movimientos CONFIRMED no eliminados (`deletedAt = null`), error 409
+(reasignar primero). Los movimientos PENDING, CANCELLED o eliminados no bloquean el borrado.
+
+No se puede borrar una categoría que tenga subcategorías activas; primero deben eliminarse
+o reasignarse.
 
 4.6 POST /categories/:id/restore
 Descripción: Restaurar una categoría borrada.
@@ -754,6 +773,17 @@ Errores:
 404: categoría no encontrada.
 
 409: conflicto de unicidad.
+
+Seed de categorías del sistema:
+
+- INCOME: Sueldo (`wallet`, `#10b981`), Freelance (`briefcase`, `#059669`),
+  Inversiones (`trending-up`, `#0ea5e9`), Otros ingresos (`plus-circle`, `#6366f1`).
+- EXPENSE: Alquiler (`home`, `#ef4444`), Comida (`utensils`, `#f59e0b`),
+  Transporte (`car`, `#3b82f6`), Salud (`heart-pulse`, `#ec4899`),
+  Ocio (`gamepad-2`, `#8b5cf6`), Educación (`graduation-cap`, `#14b8a6`),
+  Servicios (`receipt`, `#f97316`), Otros gastos (`more-horizontal`, `#64748b`).
+
+La seed es idempotente y crea únicamente las categorías del sistema que aún no existan.
 
 5. Módulo Transactions (/transactions)
 5.1 GET /transactions

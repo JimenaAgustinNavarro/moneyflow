@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: moneyflow
       POSTGRES_DB: moneyflow_dev
     ports:
-      - '5432:5432'
+      - '5431:5432'
     volumes:
       - moneyflow_pgdata:/var/lib/postgresql/data
     healthcheck:

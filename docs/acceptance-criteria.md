@@ -517,9 +517,9 @@ Este documento define los criterios de aceptación verificables por módulo del 
 
 ### AC-CAT-05 — Jerarquía máximo 2 niveles
 
-**Enunciado:** crear una subcategoría de una subcategoría → 400.
+**Enunciado:** crear una subcategoría de una subcategoría → 422.
 
-**Verificación:** crear padre → crear hijo → crear nieto (hijo del hijo) → 400.
+**Verificación:** crear padre → crear hijo → crear nieto (hijo del hijo) → 422.
 
 **Tipo:** integration.
 
@@ -557,9 +557,11 @@ Este documento define los criterios de aceptación verificables por módulo del 
 
 ### AC-CAT-10 — Borrar categoría sin movimientos
 
-**Enunciado:** `DELETE /categories/:id` sin movimientos asociados → 204.
+**Enunciado:** `DELETE /categories/:id` sin movimientos `CONFIRMED` no eliminados ni
+subcategorías activas → 204.
 
-**Verificación:** crear categoría → `DELETE` → 204.
+**Verificación:** crear categoría sin movimientos `CONFIRMED` no eliminados ni
+subcategorías activas → `DELETE` → 204.
 
 **Tipo:** integration.
 
@@ -567,7 +569,9 @@ Este documento define los criterios de aceptación verificables por módulo del 
 
 **Enunciado:** `DELETE /categories/:id` con movimientos `CONFIRMED` → 409.
 
-**Verificación:** crear categoría → crear movimiento con esa categoría → `DELETE` → 409.
+**Verificación:** crear categoría → crear movimiento `CONFIRMED` no eliminado con esa
+categoría → `DELETE` → 409. Movimientos `PENDING`, `CANCELLED` o eliminados no bloquean
+el borrado.
 
 **Tipo:** integration.
 
@@ -576,6 +580,36 @@ Este documento define los criterios de aceptación verificables por módulo del 
 **Enunciado:** `POST /categories/:id/restore` → 200.
 
 **Verificación:** borrar → restaurar → 200.
+
+**Tipo:** integration.
+
+### AC-CAT-13 — Seed del sistema idempotente
+
+**Enunciado:** ejecutar la seed varias veces deja una única instancia de cada categoría
+del sistema documentada.
+
+**Verificación:** ejecutar `npx prisma db seed` dos veces y comprobar que la segunda
+ejecución no crea duplicados.
+
+**Tipo:** integration.
+
+### AC-CAT-14 — No borrar categoría con subcategorías activas
+
+**Enunciado:** `DELETE /categories/:id` con subcategorías activas → 409.
+
+**Verificación:** crear una categoría padre y una subcategoría activa → borrar el padre
+→ 409. Después de eliminar la subcategoría, el padre se puede eliminar si no tiene
+movimientos `CONFIRMED` no eliminados.
+
+**Tipo:** integration.
+
+### AC-CAT-15 — `parentId` no encontrado o inaccesible
+
+**Enunciado:** crear una categoría con un `parentId` inexistente, eliminado o de otro
+usuario → 404.
+
+**Verificación:** enviar cada uno de esos valores como `parentId` en `POST /categories`
+→ 404.
 
 **Tipo:** integration.
 
@@ -1765,7 +1799,7 @@ Este documento define los criterios de aceptación verificables por módulo del 
 | Auth | AC-AUTH | 11 |
 | Users | AC-USR | 10 |
 | Accounts | AC-ACC | 20 |
-| Categories | AC-CAT | 12 |
+| Categories | AC-CAT | 15 |
 | Transactions | AC-TRX | 20 |
 | Transfers | AC-TRF | 8 |
 | Recurrences | AC-REC | 14 |
@@ -1779,9 +1813,9 @@ Este documento define los criterios de aceptación verificables por módulo del 
 | Rendimiento | AC-PERF | 4 |
 | Accesibilidad | AC-A11Y | 7 |
 | Responsive | AC-RESP | 6 |
-| **Total** | | **199** |
+| **Total** | | **202** |
 
-**199 criterios de aceptación.**
+**202 criterios de aceptación.**
 
 ---
 
@@ -1790,4 +1824,3 @@ Este documento define los criterios de aceptación verificables por módulo del 
 **(Esta sección debe quedar vacía antes de cerrar el Sprint 1.)**
 
 *Sin preguntas abiertas por el momento.*
-
