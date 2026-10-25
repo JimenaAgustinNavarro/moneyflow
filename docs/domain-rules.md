@@ -198,6 +198,8 @@ text
 
 **Recálculo:** existe un endpoint `POST /accounts/:id/recalculate` que recalcula el saldo desde cero sumando todos los movimientos `CONFIRMED`. Se usa para auditar o reparar inconsistencias.
 
+El recálculo de saldo debe ejecutarse de forma transaccional y atómica (dentro de `$transaction`). Si algo falla, la operación se revierte y el saldo en BD queda consistente.
+
 **Test obligatorio:** tras N operaciones aleatorias, `balance` persistido == `SUM(movimientos confirmados)`.
 
 ---

@@ -39,10 +39,11 @@ describe('AccountsService', () => {
       count: jest.Mock;
       groupBy: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
 
   beforeEach(async () => {
-    prisma = {
+    const transactionClient = {
       account: {
         findMany: jest.fn(),
         findFirst: jest.fn(),
@@ -53,6 +54,13 @@ describe('AccountsService', () => {
         count: jest.fn(),
         groupBy: jest.fn(),
       },
+    };
+    prisma = {
+      ...transactionClient,
+      $transaction: jest.fn(
+        (callback: (tx: typeof transactionClient) => Promise<unknown>) =>
+          callback(transactionClient),
+      ),
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -333,6 +341,24 @@ describe('AccountsService', () => {
   });
 
   describe('recalculate', () => {
+    it('ejecuta la búsqueda, agregación y actualización dentro de una transacción', async () => {
+      prisma.account.findFirst.mockResolvedValue(account);
+      prisma.transaction.groupBy.mockResolvedValue([]);
+      prisma.account.update.mockResolvedValue(account);
+
+      await service.recalculate('user-1', 'account-1');
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.account.findFirst).toHaveBeenCalledWith({
+        where: { id: 'account-1', userId: 'user-1', deletedAt: null },
+      });
+      expect(prisma.transaction.groupBy).toHaveBeenCalled();
+      expect(prisma.account.update).toHaveBeenCalledWith({
+        where: { id: 'account-1' },
+        data: { balance: new Prisma.Decimal('1000') },
+      });
+    });
+
     it('conserva saldo inicial si no hay movimientos confirmados', async () => {
       prisma.account.findFirst.mockResolvedValue(account);
       prisma.transaction.groupBy.mockResolvedValue([]);

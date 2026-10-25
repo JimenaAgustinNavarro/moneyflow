@@ -208,48 +208,50 @@ export class AccountsService {
   }
 
   async recalculate(userId: string, id: string) {
-    const account = await this.prisma.account.findFirst({
-      where: { id, userId, deletedAt: null },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const account = await tx.account.findFirst({
+        where: { id, userId, deletedAt: null },
+      });
 
-    if (!account) {
-      throw new NotFoundException('Cuenta no encontrada.');
-    }
-
-    const groups = await this.prisma.transaction.groupBy({
-      by: ['type', 'direction'],
-      where: {
-        accountId: id,
-        status: 'CONFIRMED',
-        deletedAt: null,
-        type: { in: ['INCOME', 'EXPENSE', 'TRANSFER'] },
-      },
-      _sum: { amount: true },
-    });
-
-    let balance = new Prisma.Decimal(account.initialBalance);
-    for (const group of groups) {
-      const amount = group._sum.amount ?? new Prisma.Decimal(0);
-      if (group.type === 'INCOME') {
-        balance = balance.plus(amount);
-      } else if (group.type === 'EXPENSE') {
-        balance = balance.minus(amount);
-      } else if (group.type === 'TRANSFER' && group.direction === 'IN') {
-        balance = balance.plus(amount);
-      } else if (group.type === 'TRANSFER' && group.direction === 'OUT') {
-        balance = balance.minus(amount);
+      if (!account) {
+        throw new NotFoundException('Cuenta no encontrada.');
       }
-    }
 
-    await this.prisma.account.update({
-      where: { id },
-      data: { balance },
+      const groups = await tx.transaction.groupBy({
+        by: ['type', 'direction'],
+        where: {
+          accountId: id,
+          status: 'CONFIRMED',
+          deletedAt: null,
+          type: { in: ['INCOME', 'EXPENSE', 'TRANSFER'] },
+        },
+        _sum: { amount: true },
+      });
+
+      let balance = new Prisma.Decimal(account.initialBalance);
+      for (const group of groups) {
+        const amount = group._sum.amount ?? new Prisma.Decimal(0);
+        if (group.type === 'INCOME') {
+          balance = balance.plus(amount);
+        } else if (group.type === 'EXPENSE') {
+          balance = balance.minus(amount);
+        } else if (group.type === 'TRANSFER' && group.direction === 'IN') {
+          balance = balance.plus(amount);
+        } else if (group.type === 'TRANSFER' && group.direction === 'OUT') {
+          balance = balance.minus(amount);
+        }
+      }
+
+      await tx.account.update({
+        where: { id },
+        data: { balance },
+      });
+
+      return {
+        id,
+        balance: balance.toFixed(2),
+        recalculatedAt: new Date().toISOString(),
+      };
     });
-
-    return {
-      id,
-      balance: balance.toFixed(2),
-      recalculatedAt: new Date().toISOString(),
-    };
   }
 }
