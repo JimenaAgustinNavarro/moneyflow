@@ -164,8 +164,7 @@ a IPv6.
 npm run dev --workspace=@moneyflow/api
 ```
 
-Esperado: se registran las rutas y la API indica que escucha en el puerto
-3001.
+Esperado: se registran las rutas y la API indica que escucha en el puerto 3001.
 
 ### Build local y ejecución sin watcher
 
@@ -183,6 +182,33 @@ npm run dev --workspace=@moneyflow/web
 ```
 
 Esperado: Next.js informa que está listo en `http://localhost:3000`.
+
+## Limpieza de caché de Next.js
+
+Si el frontend presenta errores como `a[d] is not a function` o
+`Cannot find module './554.js'`, detén el servidor de desarrollo y limpia
+los directorios de caché:
+
+```powershell
+cd apps\web
+Remove-Item -Path '.next' -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path '.next-dev' -Recurse -Force -ErrorAction SilentlyContinue
+```
+
+Luego, desde la raíz del monorepo, reinicia el frontend:
+
+```powershell
+cd C:\Users\Jimena\Documentos\moneyflow
+npm run dev --workspace=@moneyflow/web
+```
+
+## Separación de `.next-dev` y `.next`
+
+El frontend usa `.next-dev` en desarrollo y `.next` para build y producción,
+según el `distDir` condicional configurado en `apps/web/next.config.ts`. Esta
+separación evita que `npm run build` sobrescriba la salida del servidor de
+desarrollo. No elimines `.next-dev` mientras el servidor de desarrollo esté
+corriendo.
 
 ## Limpieza
 
@@ -207,4 +233,3 @@ Esto elimina `dist/` y los archivos `*.tsbuildinfo` del workspace de la API.
 
 - El puerto 5431 evita el conflicto con PostgreSQL nativo de otro proyecto
   (ver DEUDA-03).
-- El frontend usa `.next-dev` en desarrollo y `.next` en build (ver URG-02).

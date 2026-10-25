@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TransferModal } from './TransferModal';
 import { ApiError } from '@/lib/api-client';
@@ -46,6 +46,25 @@ function renderModal(onSubmit = vi.fn().mockResolvedValue(undefined)) {
 }
 
 describe('TransferModal', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it('usa la fecha local del timezone del navegador como valor inicial', () => {
+    const resolvedOptions = new Intl.DateTimeFormat().resolvedOptions();
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+      ...resolvedOptions,
+      timeZone: 'America/New_York',
+    });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
+
+    renderModal();
+
+    expect(screen.getByLabelText('Fecha')).toHaveValue('2026-10-14');
+  });
+
   it('muestra los campos y valida cuentas requeridas y monto', async () => {
     renderModal();
     const dialog = within(document.body).getByRole('dialog');
@@ -86,7 +105,12 @@ describe('TransferModal', () => {
     expect(screen.queryByRole('option', { name: 'Cuenta destino' })).not.toBeInTheDocument();
   });
 
-  it('envía fecha ISO con offset de Lima al crear', async () => {
+  it('envía fecha ISO con el offset del timezone del navegador', async () => {
+    const resolvedOptions = new Intl.DateTimeFormat().resolvedOptions();
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+      ...resolvedOptions,
+      timeZone: 'America/New_York',
+    });
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     const { onClose } = renderModal(onSubmit);
@@ -113,7 +137,7 @@ describe('TransferModal', () => {
         destinationAccountId: 'account-2',
         amount: '25.50',
         description: 'Ahorro mensual',
-        date: '2026-10-15T00:00:00-05:00',
+        date: '2026-10-15T00:00:00-04:00',
       }),
     );
     expect(onClose).toHaveBeenCalledOnce();

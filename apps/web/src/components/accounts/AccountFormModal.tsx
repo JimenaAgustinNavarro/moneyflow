@@ -2,8 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import type { UseFormRegisterReturn } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
@@ -11,6 +10,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Animated } from '@/components/ui/motion';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ApiError } from '@/lib/api-client';
 import type { Account, CreateAccountInput, UpdateAccountInput } from '@/types/account';
 
@@ -109,7 +115,11 @@ function CreateAccountForm({
       </DialogHeader>
       <form onSubmit={submit} className="space-y-4" noValidate>
         {serverError && (
-          <Animated variant="fadeIn" role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <Animated
+            variant="fadeIn"
+            role="alert"
+            className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
             {serverError}
           </Animated>
         )}
@@ -122,10 +132,26 @@ function CreateAccountForm({
           />
           {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
-        <AccountTypeField
-          id="create-account-type"
-          registration={form.register('type')}
-        />
+        <div className="space-y-2">
+          <Label htmlFor="create-account-type">Tipo</Label>
+          <Controller
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger id="create-account-type" className="w-full">
+                  <SelectValue placeholder="Selecciona un tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Efectivo</SelectItem>
+                  <SelectItem value="BANK">Banco</SelectItem>
+                  <SelectItem value="WALLET">Billetera</SelectItem>
+                  <SelectItem value="CREDIT">Tarjeta de crédito</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
         <div className="space-y-2">
           <Label htmlFor="create-account-balance">Saldo inicial</Label>
           <Input
@@ -204,7 +230,11 @@ function EditAccountForm({
       </DialogHeader>
       <form onSubmit={submit} className="space-y-4" noValidate>
         {serverError && (
-          <Animated variant="fadeIn" role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <Animated
+            variant="fadeIn"
+            role="alert"
+            className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
             {serverError}
           </Animated>
         )}
@@ -217,7 +247,26 @@ function EditAccountForm({
           />
           {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
-        <AccountTypeField id="edit-account-type" registration={form.register('type')} />
+        <div className="space-y-2">
+          <Label htmlFor="edit-account-type">Tipo</Label>
+          <Controller
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger id="edit-account-type" className="w-full">
+                  <SelectValue placeholder="Selecciona un tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Efectivo</SelectItem>
+                  <SelectItem value="BANK">Banco</SelectItem>
+                  <SelectItem value="WALLET">Billetera</SelectItem>
+                  <SelectItem value="CREDIT">Tarjeta de crédito</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
         <FormButtons
           isSubmitting={form.formState.isSubmitting}
           onClose={onClose}
@@ -225,30 +274,6 @@ function EditAccountForm({
         />
       </form>
     </>
-  );
-}
-
-function AccountTypeField({
-  id,
-  registration,
-}: {
-  id: string;
-  registration: UseFormRegisterReturn;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id}>Tipo</Label>
-      <select
-        id={id}
-        {...registration}
-        className="w-full rounded-xl border border-input bg-background/80 px-3 py-2.5 text-sm text-foreground shadow-sm transition-all focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
-      >
-        <option value="CASH">Efectivo</option>
-        <option value="BANK">Banco</option>
-        <option value="WALLET">Billetera</option>
-        <option value="CREDIT">Tarjeta de crédito</option>
-      </select>
-    </div>
   );
 }
 

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -41,6 +41,33 @@ describe('AccountFormModal', () => {
         initialBalance: '0.00',
         currency: 'PEN',
       });
+    });
+  });
+
+  it('envía type CASH al crear', async () => {
+    const onSubmitCreate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AccountFormModal
+        open
+        account={null}
+        onClose={vi.fn()}
+        onSubmitCreate={onSubmitCreate}
+        onSubmitEdit={vi.fn()}
+      />,
+    );
+    const dialog = within(screen.getByRole('dialog'));
+
+    fireEvent.change(dialog.getByLabelText('Nombre'), { target: { value: 'Caja' } });
+    fireEvent.change(dialog.getByLabelText('Saldo inicial'), { target: { value: '100.00' } });
+    fireEvent.keyDown(dialog.getByRole('combobox', { name: 'Tipo' }), {
+      key: 'ArrowDown',
+      code: 'ArrowDown',
+    });
+    fireEvent.click(await screen.findByRole('option', { name: 'Efectivo' }));
+    fireEvent.click(dialog.getByRole('button', { name: 'Crear cuenta' }));
+
+    await waitFor(() => {
+      expect(onSubmitCreate).toHaveBeenCalledWith(expect.objectContaining({ type: 'CASH' }));
     });
   });
 

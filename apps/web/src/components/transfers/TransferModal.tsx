@@ -45,9 +45,13 @@ interface TransferModalProps {
   accounts: Account[];
 }
 
-function getTodayInLima(): string {
+function getBrowserTimezone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+function getTodayInBrowser(): string {
   const parts = new Intl.DateTimeFormat('en', {
-    timeZone: 'America/Lima',
+    timeZone: getBrowserTimezone(),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -56,6 +60,35 @@ function getTodayInLima(): string {
     parts.find((part) => part.type === type)?.value ?? '';
 
   return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+function getBrowserOffset(date: string): string {
+  const timeZone = getBrowserTimezone();
+  const [year, month, day] = date.split('-').map(Number);
+  const localMidnightAsUtc = Date.UTC(year, month - 1, day);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    timeZoneName: 'longOffset',
+  });
+  const getOffsetMinutes = (instant: number) => {
+    const offset = formatter
+      .formatToParts(new Date(instant))
+      .find((part) => part.type === 'timeZoneName')?.value;
+    const match = offset?.match(/^GMT([+-])(\d{1,2}):(\d{2})$/);
+    if (!match) return 0;
+
+    const minutes = Number(match[2]) * 60 + Number(match[3]);
+    return match[1] === '+' ? minutes : -minutes;
+  };
+
+  let offsetMinutes = getOffsetMinutes(localMidnightAsUtc);
+  offsetMinutes = getOffsetMinutes(localMidnightAsUtc - offsetMinutes * 60_000);
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absoluteMinutes = Math.abs(offsetMinutes);
+  const hours = String(Math.floor(absoluteMinutes / 60)).padStart(2, '0');
+  const minutes = String(absoluteMinutes % 60).padStart(2, '0');
+
+  return `${sign}${hours}:${minutes}`;
 }
 
 export function TransferModal({ open, onClose, onSubmit, accounts }: TransferModalProps) {
@@ -68,7 +101,7 @@ export function TransferModal({ open, onClose, onSubmit, accounts }: TransferMod
       destinationAccountId: '',
       amount: '',
       description: '',
-      date: getTodayInLima(),
+      date: '',
     },
   });
 
@@ -85,7 +118,7 @@ export function TransferModal({ open, onClose, onSubmit, accounts }: TransferMod
       destinationAccountId: '',
       amount: '',
       description: '',
-      date: getTodayInLima(),
+      date: getTodayInBrowser(),
     });
     setServerError(null);
   }, [form, open]);
@@ -99,7 +132,7 @@ export function TransferModal({ open, onClose, onSubmit, accounts }: TransferMod
         destinationAccountId: data.destinationAccountId,
         amount: data.amount,
         description: data.description.trim() || null,
-        date: `${data.date}T00:00:00-05:00`,
+        date: `${data.date}T00:00:00${getBrowserOffset(data.date)}`,
       });
       onClose();
     } catch (error) {
