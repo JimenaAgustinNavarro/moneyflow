@@ -7,6 +7,15 @@
     "apps/*",
     "packages/*"
   ],
+  "overrides": {
+    "body-parser": "^2.4.0",
+    "fast-uri": "^3.1.9",
+    "multer": "^2.5.0",
+    "postcss": "^8.5.31",
+    "next": {
+      "postcss": "^8.5.31"
+    }
+  },
   "engines": {
     "node": ">=22.0.0"
   },
