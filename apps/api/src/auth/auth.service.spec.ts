@@ -7,7 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuthService } from './auth.service';
-import { LoginDto, LogoutDto, RefreshDto, RegisterDto } from './dto';
+import { LoginDto, RegisterDto } from './dto';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from './types/jwt-payload.type';
@@ -255,7 +255,7 @@ describe('AuthService', () => {
   });
 
   describe('refresh', () => {
-    const dto: RefreshDto = { refreshToken: 'old-refresh-token' };
+    const refreshToken = 'old-refresh-token';
     const oldToken = {
       id: 'token-1',
       userId: activeUser.id,
@@ -272,7 +272,7 @@ describe('AuthService', () => {
       });
       refreshTokenRepository.rotate.mockResolvedValue({ id: 'token-2' });
 
-      const result = await service.refresh(dto, 'test-agent', '127.0.0.1');
+      const result = await service.refresh(refreshToken, 'test-agent', '127.0.0.1');
       const [, newTokenData] = refreshTokenRepository.rotate.mock.calls[0] as [
         string,
         { userAgent: string; ip: string; tokenHash: string },
@@ -288,7 +288,7 @@ describe('AuthService', () => {
     it('rechaza un token no encontrado con 401', async () => {
       refreshTokenRepository.findByHash.mockResolvedValue(null);
 
-      await expect(service.refresh(dto)).rejects.toMatchObject({
+      await expect(service.refresh(refreshToken)).rejects.toMatchObject({
         status: 401,
         message: 'Refresh token inválido.',
       });
@@ -302,7 +302,7 @@ describe('AuthService', () => {
       });
       refreshTokenRepository.rotate.mockResolvedValue(null);
 
-      await expect(service.refresh(dto)).rejects.toMatchObject({
+      await expect(service.refresh(refreshToken)).rejects.toMatchObject({
         status: 401,
         message: 'Refresh token inválido.',
       });
@@ -312,7 +312,7 @@ describe('AuthService', () => {
       refreshTokenRepository.findByHash.mockResolvedValue(oldToken);
       prisma.user.findFirst.mockResolvedValue(null);
 
-      await expect(service.refresh(dto)).rejects.toMatchObject({
+      await expect(service.refresh(refreshToken)).rejects.toMatchObject({
         status: 401,
         message: 'Refresh token inválido.',
       });
@@ -321,7 +321,7 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
-    const dto: LogoutDto = { refreshToken: 'refresh-token' };
+    const refreshToken = 'refresh-token';
     const token = {
       id: 'token-1',
       userId: activeUser.id,
@@ -331,14 +331,14 @@ describe('AuthService', () => {
     it('revoca el token perteneciente al usuario autenticado', async () => {
       refreshTokenRepository.findByHash.mockResolvedValue(token);
 
-      await expect(service.logout(activeUser.id, dto)).resolves.toBeUndefined();
+      await expect(service.logout(activeUser.id, refreshToken)).resolves.toBeUndefined();
       expect(refreshTokenRepository.revoke).toHaveBeenCalledWith(token.id);
     });
 
     it('rechaza un token no encontrado con 401', async () => {
       refreshTokenRepository.findByHash.mockResolvedValue(null);
 
-      await expect(service.logout(activeUser.id, dto)).rejects.toMatchObject({
+      await expect(service.logout(activeUser.id, refreshToken)).rejects.toMatchObject({
         status: 401,
         message: 'Refresh token inválido.',
       });
@@ -350,7 +350,7 @@ describe('AuthService', () => {
         userId: 'other-user',
       });
 
-      await expect(service.logout(activeUser.id, dto)).rejects.toMatchObject({
+      await expect(service.logout(activeUser.id, refreshToken)).rejects.toMatchObject({
         status: 401,
         message: 'Refresh token inválido.',
       });
@@ -363,7 +363,7 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() - 1),
       });
 
-      await expect(service.logout(activeUser.id, dto)).rejects.toMatchObject({
+      await expect(service.logout(activeUser.id, refreshToken)).rejects.toMatchObject({
         status: 401,
         message: 'Refresh token inválido.',
       });

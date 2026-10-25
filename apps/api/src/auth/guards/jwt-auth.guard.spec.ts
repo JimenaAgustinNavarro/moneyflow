@@ -8,12 +8,14 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { PassportModule } from '@nestjs/passport';
+import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { Public } from '../decorators/public.decorator';
 import { AuthenticatedUser } from '../types/jwt-payload.type';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { JwtStrategy } from '../strategies/jwt.strategy';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Controller()
 class GuardTestController {
@@ -58,6 +60,17 @@ describe('JwtAuthGuard', () => {
           },
         },
         {
+          provide: PrismaService,
+          useValue: {
+            user: {
+              findFirst: jest.fn().mockResolvedValue({
+                id: 'user-1',
+                email: 'jimena@example.com',
+              }),
+            },
+          },
+        },
+        {
           provide: APP_GUARD,
           useClass: JwtAuthGuard,
         },
@@ -65,6 +78,7 @@ describe('JwtAuthGuard', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.use(cookieParser());
     await app.init();
     jwtService = moduleRef.get(JwtService);
   });
@@ -82,6 +96,22 @@ describe('JwtAuthGuard', () => {
     await request(app.getHttpServer())
       .get('/protected')
       .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+      .expect({
+        id: 'user-1',
+        email: 'jimena@example.com',
+      });
+  });
+
+  it('acepta un access token enviado en cookie', async () => {
+    const token = jwtService.sign({
+      sub: 'user-1',
+      email: 'jimena@example.com',
+    });
+
+    await request(app.getHttpServer())
+      .get('/protected')
+      .set('Cookie', `accessToken=${token}`)
       .expect(200)
       .expect({
         id: 'user-1',

@@ -9,7 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import * as crypto from 'node:crypto';
-import { LoginDto, LogoutDto, RefreshDto, RegisterDto } from './dto';
+import { LoginDto, RegisterDto } from './dto';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { JwtPayload } from './types/jwt-payload.type';
 import { PrismaService } from '../prisma/prisma.service';
@@ -147,11 +147,11 @@ export class AuthService {
   }
 
   async refresh(
-    dto: RefreshDto,
+    refreshToken: string,
     userAgent?: string,
     ip?: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const oldTokenHash = this.hashRefreshToken(dto.refreshToken);
+    const oldTokenHash = this.hashRefreshToken(refreshToken);
     const oldToken = await this.refreshTokenRepository.findByHash(oldTokenHash);
 
     if (!oldToken) {
@@ -188,9 +188,9 @@ export class AuthService {
     return { accessToken, refreshToken: newRefreshToken };
   }
 
-  async logout(userId: string, dto: LogoutDto): Promise<void> {
+  async logout(userId: string, refreshToken: string): Promise<void> {
     const token = await this.refreshTokenRepository.findByHash(
-      this.hashRefreshToken(dto.refreshToken),
+      this.hashRefreshToken(refreshToken),
     );
 
     if (

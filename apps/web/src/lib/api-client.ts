@@ -1,5 +1,6 @@
 import type { AuthSession, LoginInput, RegisterInput, RegisterResult } from '@/types/auth';
-import { clearAuthSession, getRefreshToken, readAuthSession, setTokens } from '@/lib/auth-storage';
+import type { AuthUser } from '@/types/auth';
+import { clearAuthSession } from '@/lib/auth-storage';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
@@ -76,6 +77,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const response = await fetch(getApiUrl(path), {
     ...init,
+    credentials: 'include',
     headers,
   });
 
@@ -95,37 +97,21 @@ function redirectToLogin(): void {
 }
 
 async function doRefresh(): Promise<void> {
-  const refreshToken = getRefreshToken();
-
-  if (!refreshToken) {
-    throw new ApiError(401, 'No hay refresh token');
-  }
-
   let response: Response;
 
   try {
     response = await fetch(getApiUrl('/auth/refresh'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      credentials: 'include',
     });
   } catch {
     throw new ApiError(0, 'Error de conexión');
   }
 
-  const payload = await readPayload(response);
-
   if (!response.ok) {
     throw new ApiError(401, 'Refresh token inválido');
   }
-
-  const tokens = unwrapData<{ accessToken: string; refreshToken: string }>(payload);
-
-  if (!tokens?.accessToken || !tokens.refreshToken) {
-    throw new ApiError(500, 'La respuesta de renovación no contiene tokens válidos.');
-  }
-
-  setTokens(tokens);
 }
 
 function getRefreshPromise(): Promise<void> {
@@ -158,19 +144,16 @@ async function sendAuthenticated<T>(
   init: RequestInit | undefined,
   isRetry: boolean,
 ): Promise<T> {
-  const { accessToken } = readAuthSession();
   const headers = new Headers(init?.headers);
 
   headers.set('Content-Type', 'application/json');
-  if (accessToken) {
-    headers.set('Authorization', `Bearer ${accessToken}`);
-  }
 
   let response: Response;
 
   try {
     response = await fetch(getApiUrl(path), {
       ...init,
+      credentials: 'include',
       headers,
     });
   } catch {
@@ -210,15 +193,7 @@ export async function authenticatedRequest<T>(path: string, init?: RequestInit):
 }
 
 export async function refreshSessionTokens(): Promise<void> {
-  try {
-    await getRefreshPromise();
-  } catch (error) {
-    await clearSessionAndRedirect();
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError(401, 'Refresh token inválido');
-  }
+  await getRefreshPromise();
 }
 
 export async function loginUser(input: LoginInput): Promise<AuthSession> {
@@ -228,6 +203,10 @@ export async function loginUser(input: LoginInput): Promise<AuthSession> {
   });
 }
 
+export async function getCurrentUser(): Promise<AuthUser> {
+  return request<AuthUser>('/auth/me');
+}
+
 export async function registerUser(input: RegisterInput): Promise<RegisterResult> {
   return request<RegisterResult>('/auth/register', {
     method: 'POST',
@@ -235,12 +214,8 @@ export async function registerUser(input: RegisterInput): Promise<RegisterResult
   });
 }
 
-export async function logoutUser(accessToken: string, refreshToken: string): Promise<void> {
+export async function logoutUser(): Promise<void> {
   await request('/auth/logout', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({ refreshToken }),
   });
 }

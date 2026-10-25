@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+﻿import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('api-client', () => {
   beforeEach(() => {
@@ -37,6 +37,7 @@ describe('api-client', () => {
       'http://localhost:3001/api/v1/auth/login',
       expect.objectContaining({
         method: 'POST',
+        credentials: 'include',
       }),
     );
     expect(result.user.email).toBe('ana@example.com');
@@ -167,7 +168,7 @@ describe('api-client', () => {
     });
   });
 
-  it('renueva tokens y reintenta una request protegida tras 401', async () => {
+  it('renueva la sesión y reintenta una request protegida tras 401', async () => {
     const { saveAuthSession } = await import('@/lib/auth-storage');
     saveAuthSession({
       accessToken: 'expired-access',
@@ -206,9 +207,9 @@ describe('api-client', () => {
 
     expect(result).toEqual({ name: 'Ana' });
     expect(fetchSpy).toHaveBeenCalledTimes(3);
-    expect(retriedHeaders.get('Authorization')).toBe('Bearer new-access');
-    expect(localStorage.getItem('moneyflow_access_token')).toBe('new-access');
-    expect(localStorage.getItem('moneyflow_refresh_token')).toBe('new-refresh');
+    expect(retriedHeaders.get('Authorization')).toBeNull();
+    expect(localStorage.getItem('moneyflow_access_token')).toBeNull();
+    expect(localStorage.getItem('moneyflow_refresh_token')).toBeNull();
     expect(localStorage.getItem('moneyflow_user')).toContain('Ana');
   });
 
