@@ -8,6 +8,7 @@ export interface Account {
   initialBalance: string;
   balance: string;
   archived: boolean;
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

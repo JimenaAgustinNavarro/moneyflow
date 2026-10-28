@@ -21,6 +21,7 @@ export const transactionKeys = {
         accountId: filters.accountId,
         categoryId: filters.categoryId,
         type: filters.type,
+        status: filters.status,
         from: filters.from,
         to: filters.to,
         page: filters.page ?? 1,
@@ -35,6 +36,7 @@ function buildQuery(filters: TransactionFilters): string {
   if (filters.accountId) params.set('accountId', filters.accountId);
   if (filters.categoryId) params.set('categoryId', filters.categoryId);
   if (filters.type) params.set('type', filters.type);
+  if (filters.status) params.set('status', filters.status);
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   params.set('page', String(filters.page ?? 1));

@@ -18,7 +18,8 @@ import {
 } from '@/components/ui/select';
 import { ApiError } from '@/lib/api-client';
 import type { Account } from '@/types/account';
-import type { CreateTransferInput } from '@/types/transfer';
+import type { Transaction } from '@/types/transaction';
+import type { CreateTransferInput, UpdateTransferInput } from '@/types/transfer';
 
 const schema = z
   .object({
@@ -41,8 +42,9 @@ type FormData = z.infer<typeof schema>;
 interface TransferModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (input: CreateTransferInput) => Promise<void>;
+  onSubmit: (input: CreateTransferInput | UpdateTransferInput) => Promise<void>;
   accounts: Account[];
+  editing?: Transaction | null;
 }
 
 function getBrowserTimezone(): string {
@@ -91,7 +93,18 @@ function getBrowserOffset(date: string): string {
   return `${sign}${hours}:${minutes}`;
 }
 
-export function TransferModal({ open, onClose, onSubmit, accounts }: TransferModalProps) {
+function dateStringToInputValue(value: string | null | undefined): string {
+  if (!value) return getTodayInBrowser();
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return getTodayInBrowser();
+
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: getBrowserTimezone(),
+  }).format(date);
+}
+
+export function TransferModal({ open, onClose, onSubmit, accounts, editing }: TransferModalProps) {
   const [serverError, setServerError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const form = useForm<FormData>({
@@ -113,33 +126,46 @@ export function TransferModal({ open, onClose, onSubmit, accounts }: TransferMod
   useEffect(() => {
     if (!open) return;
 
-    form.reset({
-      originAccountId: '',
-      destinationAccountId: '',
-      amount: '',
-      description: '',
-      date: getTodayInBrowser(),
-    });
+    const nextDefaults = editing
+      ? {
+          originAccountId:
+            editing.direction === 'OUT' ? editing.accountId : editing.counterpartAccountId ?? '',
+          destinationAccountId:
+            editing.direction === 'IN' ? editing.accountId : editing.counterpartAccountId ?? '',
+          amount: editing.amount,
+          description: editing.description ?? '',
+          date: dateStringToInputValue(editing.date),
+        }
+      : {
+          originAccountId: '',
+          destinationAccountId: '',
+          amount: '',
+          description: '',
+          date: getTodayInBrowser(),
+        };
+
+    form.reset(nextDefaults);
     setServerError(null);
-  }, [form, open]);
+  }, [editing, form, open]);
 
   const submit = form.handleSubmit(async (data) => {
     setServerError(null);
     setIsSubmitting(true);
     try {
-      await onSubmit({
+      const payload: CreateTransferInput | UpdateTransferInput = {
         originAccountId: data.originAccountId,
         destinationAccountId: data.destinationAccountId,
         amount: data.amount,
         description: data.description.trim() || null,
         date: `${data.date}T00:00:00${getBrowserOffset(data.date)}`,
-      });
+      };
+      await onSubmit(payload);
       onClose();
     } catch (error) {
       setServerError(
         error instanceof ApiError || error instanceof Error
           ? error.message
-          : 'No se pudo crear la transferencia.',
+          : 'No se pudo guardar la transferencia.',
       );
     } finally {
       setIsSubmitting(false);
@@ -152,7 +178,7 @@ export function TransferModal({ open, onClose, onSubmit, accounts }: TransferMod
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nueva transferencia</DialogTitle>
+          <DialogTitle>{editing ? 'Editar transferencia' : 'Nueva transferencia'}</DialogTitle>
         </DialogHeader>
 
         {serverError && (
@@ -247,7 +273,7 @@ export function TransferModal({ open, onClose, onSubmit, accounts }: TransferMod
               Cancelar
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creando...' : 'Crear transferencia'}
+              {isSubmitting ? (editing ? 'Guardando...' : 'Creando...') : editing ? 'Guardar cambios' : 'Crear transferencia'}
             </Button>
           </div>
         </form>

@@ -15,6 +15,7 @@ interface AccountCardProps {
   onEdit: (account: Account) => void;
   onRecalculate: (account: Account) => void;
   onToggleArchive: (account: Account) => void;
+  onRestore?: (account: Account) => void;
   isRecalculating?: boolean;
 }
 
@@ -23,6 +24,7 @@ export function AccountCard({
   onEdit,
   onRecalculate,
   onToggleArchive,
+  onRestore,
   isRecalculating,
 }: AccountCardProps) {
   return (
@@ -57,6 +59,7 @@ export function AccountCard({
             onEdit={onEdit}
             onRecalculate={onRecalculate}
             onToggleArchive={onToggleArchive}
+            onRestore={onRestore}
             isRecalculating={isRecalculating}
           />
         </div>

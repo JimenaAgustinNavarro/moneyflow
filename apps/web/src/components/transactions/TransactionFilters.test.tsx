@@ -12,6 +12,7 @@ const accounts = [
     initialBalance: '0.00',
     balance: '0.00',
     archived: false,
+    deletedAt: null,
     createdAt: '2026-10-23T00:00:00Z',
     updatedAt: '2026-10-23T00:00:00Z',
   },
@@ -52,15 +53,15 @@ async function selectOption(trigger: HTMLElement, name: string) {
 }
 
 describe('TransactionFilters', () => {
-  it('muestra cuenta, categoría, tipo y rango de fechas', () => {
+  it('muestra cuenta, categoría, tipo, estado y rango de fechas', () => {
     renderFilters();
 
     expect(screen.getByRole('combobox', { name: 'Cuenta' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Categoría' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Tipo' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Estado' })).toBeInTheDocument();
     expect(screen.getByLabelText('Desde')).toHaveAttribute('type', 'date');
     expect(screen.getByLabelText('Hasta')).toHaveAttribute('type', 'date');
-    expect(screen.queryByLabelText('Estado')).not.toBeInTheDocument();
   });
 
   it('actualiza cuenta y tipo reiniciando la página a 1', async () => {
@@ -78,6 +79,18 @@ describe('TransactionFilters', () => {
       page: 1,
       limit: 20,
       type: 'INCOME',
+    });
+  });
+
+  it('actualiza el estado reiniciando la página a 1', async () => {
+    const { onChange } = renderFilters();
+
+    await selectOption(screen.getByRole('combobox', { name: 'Estado' }), 'Confirmado');
+
+    expect(onChange).toHaveBeenCalledWith({
+      page: 1,
+      limit: 20,
+      status: 'CONFIRMED',
     });
   });
 

@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import type { Account } from '@/types/account';
 import type { Category } from '@/types/category';
-import type { TransactionFilters as Filters, TransactionType } from '@/types/transaction';
+import type { TransactionFilters as Filters, TransactionStatus, TransactionType } from '@/types/transaction';
 
 interface TransactionFiltersProps {
   filters: Filters;
@@ -26,6 +26,10 @@ function isTransactionType(value: string): value is TransactionType {
   return value === 'INCOME' || value === 'EXPENSE' || value === 'TRANSFER';
 }
 
+function isTransactionStatus(value: string): value is TransactionStatus {
+  return value === 'PENDING' || value === 'CONFIRMED' || value === 'CANCELLED';
+}
+
 export function TransactionFilters({
   filters,
   accounts,
@@ -36,7 +40,7 @@ export function TransactionFilters({
   const update = (patch: Partial<Filters>) => onChange({ ...filters, ...patch, page: 1 });
 
   return (
-    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
       <div className="space-y-2">
         <Label htmlFor="filter-account">Cuenta</Label>
         <Select
@@ -100,6 +104,26 @@ export function TransactionFilters({
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="filter-status">Estado</Label>
+        <Select
+          value={filters.status ?? '__all__'}
+          onValueChange={(value) =>
+            update({ status: value === '__all__' || !isTransactionStatus(value) ? undefined : value })
+          }
+        >
+          <SelectTrigger id="filter-status" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todos</SelectItem>
+            <SelectItem value="PENDING">Pendiente</SelectItem>
+            <SelectItem value="CONFIRMED">Confirmado</SelectItem>
+            <SelectItem value="CANCELLED">Cancelado</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="filter-from">Desde</Label>
         <Input
           id="filter-from"
@@ -119,7 +143,7 @@ export function TransactionFilters({
         />
       </div>
 
-      <div className="md:col-span-2 lg:col-span-5">
+      <div className="md:col-span-2 lg:col-span-6">
         <Button type="button" variant="ghost" size="sm" onClick={onReset}>
           Limpiar filtros
         </Button>

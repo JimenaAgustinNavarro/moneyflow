@@ -101,11 +101,18 @@ export function TransactionList({
                   {accountNameById[transaction.accountId] ?? 'Cuenta'}
                 </td>
                 <td className="px-3 py-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_BADGES[transaction.type]}`}
-                  >
-                    {TYPE_LABELS[transaction.type]}
-                  </span>
+                  <div className="flex flex-col items-start gap-1">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_BADGES[transaction.type]}`}
+                    >
+                      {TYPE_LABELS[transaction.type]}
+                    </span>
+                    {isTransfer && transaction.direction && (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        Transferencia · {transaction.direction === 'OUT' ? 'Salida' : 'Entrada'}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td
                   className={`whitespace-nowrap px-3 py-3 text-right font-semibold ${TYPE_COLORS[transaction.type]}`}
@@ -114,17 +121,15 @@ export function TransactionList({
                 </td>
                 <td className="px-3 py-3 text-right">
                   <div className="flex justify-end gap-1">
-                    {!isTransfer && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onEdit(transaction)}
-                        aria-label="Editar movimiento"
-                      >
-                        <Pencil aria-hidden="true" className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onEdit(transaction)}
+                      aria-label={isTransfer ? 'Editar transferencia' : 'Editar movimiento'}
+                    >
+                      <Pencil aria-hidden="true" className="h-4 w-4" />
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"

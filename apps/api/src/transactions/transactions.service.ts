@@ -31,6 +31,7 @@ export class TransactionsService {
       description: transaction.description,
       date: transaction.date.toISOString(),
       status: transaction.status,
+      direction: transaction.direction ?? null,
       transferId: transaction.transferId,
       counterpartAccountId: transaction.counterpartAccountId,
       obligationId: transaction.obligationId,

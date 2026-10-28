@@ -11,6 +11,7 @@ export interface Transaction {
   description: string | null;
   date: string;
   status: TransactionStatus;
+  direction: 'IN' | 'OUT' | null;
   transferId: string | null;
   counterpartAccountId: string | null;
   obligationId: string | null;
@@ -22,6 +23,7 @@ export interface TransactionFilters {
   accountId?: string;
   categoryId?: string;
   type?: TransactionType;
+  status?: TransactionStatus;
   from?: string;
   to?: string;
   page?: number;

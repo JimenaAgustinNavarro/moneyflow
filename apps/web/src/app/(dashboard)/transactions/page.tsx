@@ -17,7 +17,7 @@ import {
   useUpdateTransaction,
 } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
-import { useCreateTransfer, useDeleteTransfer } from '@/hooks/useTransfers';
+import { useCreateTransfer, useDeleteTransfer, useUpdateTransfer } from '@/hooks/useTransfers';
 import { ApiError } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/format-currency';
 import type {
@@ -36,6 +36,7 @@ export default function TransactionsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [editingTransfer, setEditingTransfer] = useState<Transaction | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Transaction | null>(null);
   const [pendingDeleteTransfer, setPendingDeleteTransfer] = useState<Transaction | null>(null);
   const [notice, setNotice] = useState<{ message: string; isError: boolean } | null>(null);
@@ -46,6 +47,7 @@ export default function TransactionsPage() {
     filterValues.accountId,
     filterValues.categoryId,
     filterValues.type,
+    filterValues.status,
     filterValues.from,
     filterValues.to,
   ]);
@@ -58,6 +60,7 @@ export default function TransactionsPage() {
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();
   const createTransfer = useCreateTransfer();
+  const updateTransfer = useUpdateTransfer();
   const deleteTransfer = useDeleteTransfer();
 
   const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
@@ -83,8 +86,17 @@ export default function TransactionsPage() {
     setNotice({ message: 'Movimiento creado.', isError: false });
   };
 
-  const handleCreateTransfer = async (input: CreateTransferInput) => {
-    await createTransfer.mutateAsync(input);
+  const handleTransferSubmit = async (input: CreateTransferInput | { originAccountId?: string; destinationAccountId?: string; amount?: string; description?: string | null; date?: string }) => {
+    if (editingTransfer && editingTransfer.transferId) {
+      await updateTransfer.mutateAsync({
+        transferId: editingTransfer.transferId,
+        input,
+      });
+      setNotice({ message: 'Transferencia actualizada.', isError: false });
+      return;
+    }
+
+    await createTransfer.mutateAsync(input as CreateTransferInput);
     setNotice({ message: 'Transferencia creada.', isError: false });
   };
 
@@ -152,7 +164,14 @@ export default function TransactionsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={() => setTransferModalOpen(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setEditingTransfer(null);
+              setTransferModalOpen(true);
+            }}
+          >
             <Plus aria-hidden="true" className="mr-2 h-4 w-4" />
             Nueva transferencia
           </Button>
@@ -200,6 +219,7 @@ export default function TransactionsPage() {
             accountId: nextFilters.accountId,
             categoryId: nextFilters.categoryId,
             type: nextFilters.type,
+            status: nextFilters.status,
             from: nextFilters.from,
             to: nextFilters.to,
           });
@@ -229,6 +249,11 @@ export default function TransactionsPage() {
           accountNameById={accountNameById}
           categoryNameById={categoryNameById}
           onEdit={(transaction) => {
+            if (transaction.type === 'TRANSFER') {
+              setEditingTransfer(transaction);
+              setTransferModalOpen(true);
+              return;
+            }
             setEditing(transaction);
             setModalOpen(true);
           }}
@@ -278,9 +303,13 @@ export default function TransactionsPage() {
 
       <TransferModal
         open={transferModalOpen}
-        onClose={() => setTransferModalOpen(false)}
-        onSubmit={handleCreateTransfer}
+        onClose={() => {
+          setTransferModalOpen(false);
+          setEditingTransfer(null);
+        }}
+        onSubmit={handleTransferSubmit}
         accounts={accounts}
+        editing={editingTransfer}
       />
 
       <ConfirmationModal

@@ -15,6 +15,7 @@ const transaction: Transaction = {
   description: 'Pago de salario',
   date: '2026-10-23T10:00:00.000Z',
   status: 'CONFIRMED',
+  direction: null,
   transferId: null,
   counterpartAccountId: null,
   obligationId: null,
@@ -65,6 +66,7 @@ describe('TransactionList', () => {
     const transfer: Transaction = {
       ...transaction,
       type: 'TRANSFER',
+      direction: 'OUT',
       transferId: 'transfer-1',
       categoryId: null,
     };

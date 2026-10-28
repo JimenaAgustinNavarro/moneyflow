@@ -8,6 +8,7 @@ import request from 'supertest';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
+import { PrismaService } from '../prisma/prisma.service';
 import { TransfersController } from './transfers.controller';
 import { TransfersService } from './transfers.service';
 
@@ -40,6 +41,17 @@ describe('TransfersController', () => {
       controllers: [TransfersController],
       providers: [
         { provide: TransfersService, useValue: transfersService },
+        {
+          provide: PrismaService,
+          useValue: {
+            user: {
+              findFirst: jest.fn().mockResolvedValue({
+                id: 'user-1',
+                email: 'test@example.com',
+              }),
+            },
+          },
+        },
         JwtStrategy,
         Reflector,
         {

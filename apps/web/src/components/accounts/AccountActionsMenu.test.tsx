@@ -13,6 +13,7 @@ const account: Account = {
   initialBalance: '100.00',
   balance: '125.00',
   archived: false,
+  deletedAt: null,
   createdAt: '2026-10-18T00:00:00Z',
   updatedAt: '2026-10-18T00:00:00Z',
 };

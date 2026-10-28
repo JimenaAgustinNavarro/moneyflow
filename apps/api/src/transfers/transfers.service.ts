@@ -8,7 +8,7 @@ import { Prisma, TransactionStatus, TransactionType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateTransferDto } from './dto';
+import { CreateTransferDto, UpdateTransferDto } from './dto';
 
 type SerializedTransaction = {
   id: string;
@@ -163,6 +163,91 @@ export class TransfersService {
         transferId,
         origin: this.serialize(originLeg),
         destination: this.serialize(destinationLeg),
+      };
+    });
+  }
+
+  async update(userId: string, transferId: string, dto: UpdateTransferDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const legs = await tx.transaction.findMany({
+        where: { transferId, userId, deletedAt: null },
+      });
+
+      if (legs.length !== 2) {
+        throw new NotFoundException('Transferencia no encontrada.');
+      }
+
+      const originLeg = legs.find((leg) => leg.direction === 'OUT');
+      const destinationLeg = legs.find((leg) => leg.direction === 'IN');
+      if (
+        !originLeg ||
+        !destinationLeg ||
+        originLeg.type !== TransactionType.TRANSFER ||
+        destinationLeg.type !== TransactionType.TRANSFER ||
+        originLeg.status !== TransactionStatus.CONFIRMED ||
+        destinationLeg.status !== TransactionStatus.CONFIRMED ||
+        originLeg.accountId === destinationLeg.accountId ||
+        originLeg.counterpartAccountId !== destinationLeg.accountId ||
+        destinationLeg.counterpartAccountId !== originLeg.accountId ||
+        !originLeg.amount.equals(destinationLeg.amount) ||
+        originLeg.currency !== destinationLeg.currency
+      ) {
+        throw new NotFoundException('Transferencia inconsistente.');
+      }
+
+      await this.applyTransferBalance(tx, originLeg.accountId, originLeg.amount);
+      await this.applyTransferBalance(
+        tx,
+        destinationLeg.accountId,
+        destinationLeg.amount.negated(),
+      );
+
+      const newOriginId = dto.originAccountId ?? originLeg.accountId;
+      const newDestinationId = dto.destinationAccountId ?? destinationLeg.accountId;
+
+      if (newOriginId === newDestinationId) {
+        throw new UnprocessableEntityException('Las cuentas deben ser distintas.');
+      }
+
+      const newOrigin = await this.validateAccount(tx, userId, newOriginId, 'origen');
+      const newDestination = await this.validateAccount(tx, userId, newDestinationId, 'destino');
+      if (newOrigin.currency !== newDestination.currency) {
+        throw new UnprocessableEntityException('Las cuentas deben tener la misma moneda.');
+      }
+
+      const newAmount = dto.amount ? this.parseAmount(dto.amount) : originLeg.amount;
+      const newDate = dto.date ? this.validateDate(dto.date) : originLeg.date;
+      const newDescription = dto.description !== undefined ? dto.description ?? null : originLeg.description;
+
+      const updatedOrigin = await tx.transaction.update({
+        where: { id: originLeg.id },
+        data: {
+          accountId: newOriginId,
+          counterpartAccountId: newDestinationId,
+          amount: newAmount,
+          date: newDate,
+          description: newDescription,
+        },
+      });
+
+      const updatedDestination = await tx.transaction.update({
+        where: { id: destinationLeg.id },
+        data: {
+          accountId: newDestinationId,
+          counterpartAccountId: newOriginId,
+          amount: newAmount,
+          date: newDate,
+          description: newDescription,
+        },
+      });
+
+      await this.applyTransferBalance(tx, newOriginId, newAmount.negated());
+      await this.applyTransferBalance(tx, newDestinationId, newAmount);
+
+      return {
+        transferId,
+        origin: this.serialize(updatedOrigin),
+        destination: this.serialize(updatedDestination),
       };
     });
   }

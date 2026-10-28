@@ -20,6 +20,7 @@ type AccountRecord = {
   archived: boolean;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt: Date | null;
 };
 
 @Injectable()
@@ -35,6 +36,7 @@ export class AccountsService {
       initialBalance: account.initialBalance.toFixed(2),
       balance: account.balance.toFixed(2),
       archived: account.archived,
+      deletedAt: account.deletedAt ? account.deletedAt.toISOString() : null,
       createdAt: account.createdAt.toISOString(),
       updatedAt: account.updatedAt.toISOString(),
     };

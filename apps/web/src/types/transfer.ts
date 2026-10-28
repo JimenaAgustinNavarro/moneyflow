@@ -6,6 +6,14 @@ export interface CreateTransferInput {
   date: string;
 }
 
+export interface UpdateTransferInput {
+  originAccountId?: string;
+  destinationAccountId?: string;
+  amount?: string;
+  description?: string | null;
+  date?: string;
+}
+
 export interface TransferLeg {
   id: string;
   accountId: string;

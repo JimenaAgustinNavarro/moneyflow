@@ -13,6 +13,7 @@ import {
   useAccounts,
   useCreateAccount,
   useRecalculateAccount,
+  useRestoreAccount,
   useUpdateAccount,
 } from '@/hooks/useAccounts';
 import { formatCurrency } from '@/lib/format-currency';
@@ -34,6 +35,7 @@ export default function AccountsPage() {
   const createAccount = useCreateAccount();
   const updateAccount = useUpdateAccount();
   const recalculateAccount = useRecalculateAccount();
+  const restoreAccount = useRestoreAccount();
 
   const showError = (error: unknown, fallback: string) => {
     setNotice({
@@ -76,6 +78,15 @@ export default function AccountsPage() {
       });
     } catch (error) {
       showError(error, 'No se pudo recalcular el saldo.');
+    }
+  };
+
+  const handleRestore = async (account: Account) => {
+    try {
+      await restoreAccount.mutateAsync(account.id);
+      setNotice({ message: 'Cuenta restaurada.', isError: false });
+    } catch (error) {
+      showError(error, 'No se pudo restaurar la cuenta.');
     }
   };
 
@@ -190,6 +201,7 @@ export default function AccountsPage() {
               onEdit={openEditModal}
               onRecalculate={handleRecalculate}
               onToggleArchive={handleToggleArchive}
+              onRestore={handleRestore}
               isRecalculating={
                 recalculateAccount.isPending && recalculateAccount.variables === account.id
               }

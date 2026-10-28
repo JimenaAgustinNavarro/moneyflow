@@ -425,6 +425,7 @@ json
       "initialBalance": "1000.00",
       "balance": "1500.50",
       "archived": false,
+      "deletedAt": null,
       "createdAt": "2026-10-16T14:30:00-05:00",
       "updatedAt": "2026-10-16T15:00:00-05:00"
     }
@@ -835,6 +836,7 @@ json
       "description": "Supermercado",
       "date": "2026-10-15T10:00:00-05:00",
       "status": "CONFIRMED",
+      "direction": null,
       "transferId": null,
       "counterpartAccountId": null,
       "obligationId": null,

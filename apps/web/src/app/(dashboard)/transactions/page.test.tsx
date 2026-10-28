@@ -38,6 +38,7 @@ const account: Account = {
   initialBalance: '0.00',
   balance: '100.00',
   archived: false,
+  deletedAt: null,
   createdAt: '2026-10-23T00:00:00Z',
   updatedAt: '2026-10-23T00:00:00Z',
 };
@@ -63,6 +64,7 @@ const transaction: Transaction = {
   description: 'Almuerzo',
   date: '2026-10-23T10:00:00.000Z',
   status: 'CONFIRMED',
+  direction: null,
   transferId: null,
   counterpartAccountId: null,
   obligationId: null,
