@@ -44,6 +44,11 @@ describe('DashboardService', () => {
     };
     transfer: { findMany: jest.Mock };
     category: { findMany: jest.Mock };
+    obligation: {
+      aggregate: jest.Mock;
+      findMany: jest.Mock;
+    };
+    budget: { findMany: jest.Mock };
   };
 
   beforeEach(() => {
@@ -56,6 +61,11 @@ describe('DashboardService', () => {
       },
       transfer: { findMany: jest.fn().mockResolvedValue([]) },
       category: { findMany: jest.fn().mockResolvedValue([]) },
+      obligation: {
+        aggregate: jest.fn().mockResolvedValue({ _sum: { amount: null } }),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      budget: { findMany: jest.fn().mockResolvedValue([]) },
     };
     service = new DashboardService(prisma as unknown as PrismaService);
   });
@@ -69,9 +79,123 @@ describe('DashboardService', () => {
     expect(result.totalBalance).toBe('0.00');
     expect(result.topCategories).toEqual([]);
     expect(result.recentTransactions).toEqual([]);
-    expect(result.committedMoney).toBeNull();
+    expect(result.committedMoney).toBe('0.00');
     expect(result.upcomingPayments).toEqual([]);
     expect(result.topBudgets).toEqual([]);
+  });
+
+  it.each(['PENDING', 'PARTIALLY_PAID', 'OVERDUE'])(
+    'incluye obligaciones %s en dinero comprometido',
+    async (_status) => {
+      prisma.obligation.aggregate.mockResolvedValue({
+        _sum: { amount: new Prisma.Decimal('125.50') },
+      });
+
+      const result = await service.summary(userId, new DashboardQueryDto());
+
+      expect(result.committedMoney).toBe('125.50');
+      expect(prisma.obligation.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId,
+            status: { in: ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'] },
+          }),
+        }),
+      );
+    },
+  );
+
+  it.each(['PAID', 'CANCELLED'])('no incluye obligaciones %s en dinero comprometido', async (status) => {
+    prisma.obligation.aggregate.mockResolvedValue({ _sum: { amount: null } });
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.committedMoney).toBe('0.00');
+    const call = prisma.obligation.aggregate.mock.calls[0][0];
+    expect(call.where.status.in).not.toContain(status);
+  });
+
+  it('devuelve los cinco próximos pagos más cercanos cuando existen siete obligaciones', async () => {
+    prisma.obligation.findMany.mockResolvedValue(
+      Array.from({ length: 7 }, (_, index) => ({
+        id: `obligation-${index + 1}`,
+        name: `Obligación ${index + 1}`,
+        amount: new Prisma.Decimal(`${index + 1}00.00`),
+        currency: 'PEN',
+        dueDate: new Date(`2026-10-${String(index + 1).padStart(2, '0')}T05:00:00.000Z`),
+        status: 'PENDING',
+        account: { name: 'Cuenta principal' },
+        category: index % 2 === 0 ? { name: 'Servicios' } : null,
+      })),
+    );
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.upcomingPayments).toHaveLength(5);
+    expect(result.upcomingPayments[0].id).toBe('obligation-1');
+    expect(result.upcomingPayments[4].id).toBe('obligation-5');
+  });
+
+  it('ordena los tres presupuestos principales por porcentaje de consumo', async () => {
+    const budgets = Array.from({ length: 5 }, (_, index) => ({
+      id: `budget-${index + 1}`,
+      name: `Presupuesto ${index + 1}`,
+      amount: new Prisma.Decimal('100.00'),
+      currency: 'PEN',
+      period: 'MONTHLY',
+      startDate: new Date('2026-10-01T05:00:00.000Z'),
+      endDate: new Date('2026-10-31T05:00:00.000Z'),
+      alertThreshold: 80,
+      categories: [{ categoryId: `category-${index + 1}` }],
+    }));
+    prisma.budget.findMany.mockResolvedValue(budgets);
+    prisma.transaction.aggregate.mockImplementation(({ where }) => {
+      if (!where.categoryId) {
+        return Promise.resolve({ _sum: { amount: null } });
+      }
+      const index = Number(where.categoryId.in[0].split('-')[1]);
+      return Promise.resolve({ _sum: { amount: new Prisma.Decimal(`${index * 10}.00`) } });
+    });
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.topBudgets).toHaveLength(3);
+    expect(result.topBudgets.map((budget) => budget.id)).toEqual([
+      'budget-5',
+      'budget-4',
+      'budget-3',
+    ]);
+  });
+
+  it('calcula el gasto por separado cuando presupuestos comparten categorías', async () => {
+    prisma.budget.findMany.mockResolvedValue([
+      {
+        id: 'budget-1', name: 'Primer presupuesto', amount: new Prisma.Decimal('100.00'),
+        currency: 'PEN', period: 'MONTHLY', startDate: new Date('2026-10-01T05:00:00.000Z'),
+        endDate: new Date('2026-10-31T05:00:00.000Z'), alertThreshold: 80,
+        categories: [{ categoryId: 'shared-category' }],
+      },
+      {
+        id: 'budget-2', name: 'Segundo presupuesto', amount: new Prisma.Decimal('200.00'),
+        currency: 'PEN', period: 'MONTHLY', startDate: new Date('2026-10-01T05:00:00.000Z'),
+        endDate: new Date('2026-10-31T05:00:00.000Z'), alertThreshold: 80,
+        categories: [{ categoryId: 'shared-category' }],
+      },
+    ]);
+    prisma.transaction.aggregate.mockImplementation(({ where }) => {
+      if (where.type === 'INCOME') {
+        return Promise.resolve({ _sum: { amount: null } });
+      }
+      if (where.type === 'EXPENSE' && where.categoryId) {
+        return Promise.resolve({ _sum: { amount: new Prisma.Decimal('50.00') } });
+      }
+      return Promise.resolve({ _sum: { amount: null } });
+    });
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.topBudgets.map((budget) => budget.spent)).toEqual(['50.00', '50.00']);
+    expect(prisma.transaction.aggregate).toHaveBeenCalledTimes(4);
   });
 
   it('calcula ingresos, egresos y flujo neto del período', async () => {

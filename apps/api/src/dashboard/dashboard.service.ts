@@ -1,5 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import {
+  BudgetPeriod,
+  BudgetStatus,
+  ObligationStatus,
+  Prisma,
+  TransactionStatus,
+  TransactionType,
+} from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { DashboardQueryDto } from './dto';
@@ -22,6 +29,31 @@ interface RecentTransaction {
   categoryName: string | null;
 }
 
+interface UpcomingPayment {
+  id: string;
+  name: string;
+  amount: string;
+  currency: string;
+  dueDate: string;
+  status: ObligationStatus;
+  accountName: string;
+  categoryName: string | null;
+}
+
+interface TopBudget {
+  id: string;
+  name: string;
+  limit: string;
+  currency: string;
+  periodType: BudgetPeriod;
+  startDate: string;
+  endDate: string | null;
+  spent: string;
+  percentage: number;
+  status: BudgetStatus;
+  alertThreshold: number;
+}
+
 export interface DashboardSummary {
   period: { from: string; to: string };
   totalBalance: string;
@@ -30,9 +62,9 @@ export interface DashboardSummary {
   netFlow: string;
   topCategories: TopCategory[];
   recentTransactions: RecentTransaction[];
-  committedMoney: null;
-  upcomingPayments: [];
-  topBudgets: [];
+  committedMoney: string;
+  upcomingPayments: UpcomingPayment[];
+  topBudgets: TopBudget[];
 }
 
 interface BalanceAccount {
@@ -52,8 +84,16 @@ export class DashboardService {
     const { from, to } = this.resolvePeriod(query);
     const accountFilter = query.accountId ? { accountId: query.accountId } : {};
 
-    const [accounts, incomeResult, expenseResult, categoryGroups, recentTransactions] =
-      await Promise.all([
+    const [
+      accounts,
+      incomeResult,
+      expenseResult,
+      categoryGroups,
+      recentTransactions,
+      committedMoneyAgg,
+      upcomingObligations,
+      budgets,
+    ] = await Promise.all([
         this.prisma.account.findMany({
           where: {
             userId,
@@ -111,6 +151,43 @@ export class DashboardService {
           orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }],
           take: 10,
         }),
+        this.prisma.obligation.aggregate({
+          where: {
+            userId,
+            deletedAt: null,
+            status: {
+              in: [
+                ObligationStatus.PENDING,
+                ObligationStatus.PARTIALLY_PAID,
+                ObligationStatus.OVERDUE,
+              ],
+            },
+            dueDate: { gte: from, lte: to },
+          },
+          _sum: { amount: true },
+        }),
+        this.prisma.obligation.findMany({
+          where: {
+            userId,
+            deletedAt: null,
+            status: { in: [ObligationStatus.PENDING, ObligationStatus.PARTIALLY_PAID] },
+          },
+          orderBy: { dueDate: 'asc' },
+          take: 5,
+          include: {
+            account: { select: { name: true } },
+            category: { select: { name: true } },
+          },
+        }),
+        this.prisma.budget.findMany({
+          where: { userId, deletedAt: null, active: true },
+          include: {
+            categories: {
+              where: { deletedAt: null },
+              select: { categoryId: true },
+            },
+          },
+        }),
       ]);
 
     const categoryIds = categoryGroups.flatMap((group) =>
@@ -130,6 +207,41 @@ export class DashboardService {
 
     const income = new Prisma.Decimal(incomeResult._sum.amount ?? 0);
     const expense = new Prisma.Decimal(expenseResult._sum.amount ?? 0);
+    const budgetUsage = await Promise.all(
+      budgets.map(async (budget): Promise<TopBudget> => {
+        const categoryIds = budget.categories.map((relation) => relation.categoryId);
+        const spentResult = categoryIds.length
+          ? await this.prisma.transaction.aggregate({
+              where: {
+                userId,
+                type: TransactionType.EXPENSE,
+                status: TransactionStatus.CONFIRMED,
+                deletedAt: null,
+                categoryId: { in: categoryIds },
+                occurredAt: { gte: budget.startDate, lte: budget.endDate ?? new Date() },
+              },
+              _sum: { amount: true },
+            })
+          : null;
+        const spent = new Prisma.Decimal(spentResult?._sum.amount ?? 0);
+        const limit = new Prisma.Decimal(budget.amount);
+        const percentage = limit.isZero() ? 0 : spent.div(limit).mul(100).toNumber();
+
+        return {
+          id: budget.id,
+          name: budget.name,
+          limit: limit.toFixed(2),
+          currency: budget.currency,
+          periodType: budget.period,
+          startDate: this.formatLimaIso(budget.startDate),
+          endDate: budget.endDate ? this.formatLimaIso(budget.endDate) : null,
+          spent: spent.toFixed(2),
+          percentage,
+          status: this.calculateStatus(percentage, budget.alertThreshold),
+          alertThreshold: budget.alertThreshold,
+        };
+      }),
+    );
 
     return {
       period: { from: this.formatLimaIso(from), to: this.formatLimaIso(to) },
@@ -160,10 +272,27 @@ export class DashboardService {
           ? (categoryNames.get(transaction.categoryId) ?? null)
           : null,
       })),
-      committedMoney: null,
-      upcomingPayments: [],
-      topBudgets: [],
+      committedMoney: new Prisma.Decimal(committedMoneyAgg._sum.amount ?? 0).toFixed(2),
+      upcomingPayments: upcomingObligations.slice(0, 5).map((obligation) => ({
+        id: obligation.id,
+        name: obligation.name,
+        amount: obligation.amount.toFixed(2),
+        currency: obligation.currency,
+        dueDate: obligation.dueDate.toISOString(),
+        status: obligation.status,
+        accountName: obligation.account.name,
+        categoryName: obligation.category?.name ?? null,
+      })),
+      topBudgets: budgetUsage
+        .sort((first, second) => second.percentage - first.percentage)
+        .slice(0, 3),
     };
+  }
+
+  private calculateStatus(percentage: number, alertThreshold: number): BudgetStatus {
+    if (percentage < alertThreshold) return BudgetStatus.UNDER_LIMIT;
+    if (percentage <= 100) return BudgetStatus.NEAR_LIMIT;
+    return BudgetStatus.OVER_LIMIT;
   }
 
   private resolvePeriod(query: DashboardQueryDto): { from: Date; to: Date } {

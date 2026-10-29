@@ -1196,9 +1196,34 @@ Alterna `active`. Response `200` dentro de `{ data }`.
         "categoryName": "Alimentación"
       }
     ],
-    "committedMoney": null,
-    "upcomingPayments": [],
-    "topBudgets": []
+    "committedMoney": "1250.00",
+    "upcomingPayments": [
+      {
+        "id": "550e8400-...",
+        "name": "Alquiler",
+        "amount": "850.00",
+        "currency": "PEN",
+        "dueDate": "2026-10-30T00:00:00.000-05:00",
+        "status": "PENDING",
+        "accountName": "Cuenta principal",
+        "categoryName": "Vivienda"
+      }
+    ],
+    "topBudgets": [
+      {
+        "id": "550e8400-...",
+        "name": "Alimentación mensual",
+        "limit": "600.00",
+        "currency": "PEN",
+        "periodType": "MONTHLY",
+        "startDate": "2026-10-01T00:00:00.000-05:00",
+        "endDate": "2026-10-31T00:00:00.000-05:00",
+        "spent": "420.00",
+        "percentage": 70,
+        "status": "UNDER_LIMIT",
+        "alertThreshold": 80
+      }
+    ]
   }
 }
 ```
@@ -1209,10 +1234,23 @@ confirmados más recientes, independientemente del período, y respeta `accountI
 envía. Los importes se serializan como strings con dos decimales. Las fechas de período y
 movimientos se devuelven en `America/Lima` con offset `-05:00`.
 
-`committedMoney`, `upcomingPayments` y `topBudgets` permanecen vacíos (`null` o `[]`) hasta
-implementar obligaciones y presupuestos en Sprint 5.
+`committedMoney` suma `Obligation.amount` de las obligaciones que vencen dentro del período
+seleccionado y tienen estado `PENDING`, `PARTIALLY_PAID` u `OVERDUE`. Devuelve `0.00` cuando
+no existen obligaciones que cumplan esos filtros.
+
+`upcomingPayments` contiene como máximo las cinco próximas obligaciones con estado `PENDING` o
+`PARTIALLY_PAID`, ordenadas por `dueDate` ascendente. Incluye los nombres de cuenta y categoría;
+`categoryName` es `null` si la obligación no tiene categoría.
+
+`topBudgets` contiene como máximo los tres presupuestos activos cuyo porcentaje de consumo sea
+más alto, calculado como `spent / limit * 100`. Incluye el estado calculado como `UNDER_LIMIT`
+cuando el porcentaje es menor que `alertThreshold`, `NEAR_LIMIT` cuando está entre el umbral y
+100, y `OVER_LIMIT` cuando supera 100. El gasto se calcula con movimientos `EXPENSE` confirmados
+dentro del período propio de cada presupuesto.
+
 `categoryName` es `null` si el movimiento no tiene una categoría asociada o si no se encuentra
-su registro de categoría.
+su registro de categoría. Los importes de obligaciones y presupuestos se serializan con dos
+decimales.
 
 **Errores:**
 
