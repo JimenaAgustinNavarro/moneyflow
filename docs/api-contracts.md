@@ -1247,206 +1247,30 @@ Errores: 400 monto invalido o excedente; 401 token ausente o invalido; 404 recur
 
 8. Módulo Budgets (/budgets)
 8.1 GET /budgets
-Descripción: Listar presupuestos del usuario.
-
-Auth: Sí.
-
-Query params:
-
-active (opcional): true | false.
-
-includeDeleted (opcional): true.
-
-Response (200):
-
-json
-{
-  "data": [
-    {
-      "id": "550e8400-...",
-      "name": "Comida mensual",
-      "period": "MONTHLY",
-      "amount": "800.00",
-      "startDate": "2026-10-01T00:00:00-05:00",
-      "endDate": null,
-      "alertThreshold": 80,
-      "active": true,
-      "categories": [
-        { "id": "550e8400-...", "name": "Comida", "type": "EXPENSE" }
-      ],
-      "createdAt": "2026-10-01T00:00:00-05:00"
-    }
-  ]
-}
-Errores:
-
-401: token inválido.
+Lista presupuestos del usuario. Query params: status (UNDER_LIMIT | NEAR_LIMIT | OVER_LIMIT), active (true | false) e includeDeleted (true). No hay paginacion. Respuesta: { data: [{ id, name, limit, currency, periodType, startDate, endDate, alertThreshold, active, status, categories, createdAt, updatedAt, deletedAt }] }. Errores 401.
 
 8.2 POST /budgets
-Descripción: Crear un presupuesto.
-
-Auth: Sí.
-
-Body:
-
-json
-{
-  "name": "Comida mensual",
-  "period": "MONTHLY",
-  "amount": "800.00",
-  "startDate": "2026-10-01T00:00:00-05:00",
-  "endDate": null,
-  "alertThreshold": 80,
-  "categoryIds": ["550e8400-...", "550e8400-..."]
-}
-Validaciones:
-
-name: 1-60 caracteres.
-
-period: WEEKLY | MONTHLY.
-
-amount: > 0.
-
-startDate: válida.
-
-endDate: opcional, >= startDate.
-
-alertThreshold: 1-100.
-
-categoryIds: al menos 1, todas del usuario o del sistema, tipo EXPENSE.
-
-Response (201): igual que GET /budgets/:id.
-
-Errores:
-
-400: validación fallida.
-
-404: categoría no encontrada.
-
-422: categorías duplicadas o de tipo incorrecto.
-
-Reglas de negocio:
-
-domain-rules.md sección 7.1: un presupuesto aplica a 1+ categorías.
-
-domain-rules.md sección 7.2: el gasto computable excluye transferencias y movimientos sin categoría.
+Body: name (1-255), limit decimal mayor que cero, currency opcional AAA (default PEN), periodType (WEEKLY | MONTHLY | QUARTERLY | YEARLY), startDate ISO Lima, endDate opcional, categoryIds UUID[] no vacio y alertThreshold opcional 1-100 (default 80). Respuesta 201. Errores 400 y 404.
 
 8.3 GET /budgets/:id
-Descripción: Obtener detalle de un presupuesto.
-
-Auth: Sí.
-
-Response (200): igual que GET /budgets.
-
-Errores:
-
-404: presupuesto no encontrado.
+Respuesta 200 con detalle y categorias activas. Errores 404.
 
 8.4 GET /budgets/:id/usage
-Descripción: Uso actual del presupuesto.
+Respuesta 200: { data: { spent, limit, percentage, status, alertThreshold, period: { startDate, endDate } } }. spent suma solo transacciones EXPENSE CONFIRMED no eliminadas de categorias activas dentro del periodo. Estados: UNDER_LIMIT, NEAR_LIMIT, OVER_LIMIT. Errores 404.
 
-Auth: Sí.
+8.5 POST /budgets/:id/copy
+Body: startDate ISO, endDate opcional y name opcional. Copia limite, moneda, periodo, umbral, estado activo y categorias activas. No copia gasto ni transacciones. Respuesta 201. Errores 400 y 404.
 
-Query params:
+8.6 PATCH /budgets/:id
+Campos opcionales del DTO de creacion y categoryIds para quitar, restaurar o crear relaciones. Respuesta 200. Errores 400 y 404.
 
-periodStart (opcional): YYYY-MM-DD — período a consultar. Default: período actual.
+8.7 DELETE /budgets/:id
+Soft delete del presupuesto y relaciones activas. Respuesta 204. Errores 404.
 
-Response (200):
+8.8 POST /budgets/:id/restore
+Restauracion del presupuesto y relaciones eliminadas. Respuesta 200. Errores 404.
 
-json
-{
-  "data": {
-    "budgetId": "550e8400-...",
-    "periodStart": "2026-10-01T00:00:00-05:00",
-    "periodEnd": "2026-10-31T23:59:59-05:00",
-    "amount": "800.00",
-    "gastoComputable": "450.50",
-    "saldoRestante": "349.50",
-    "porcentajeUtilizado": 56.31,
-    "alertThreshold": 80,
-    "alertaActiva": false
-  }
-}
-Errores:
-
-404: presupuesto no encontrado.
-
-Reglas de negocio:
-
-domain-rules.md sección 7.2: gasto computable = SUM(egresos confirmados con categoría del presupuesto, en el período).
-
-domain-rules.md sección 7.3: porcentajeUtilizado = (gastoComputable / amount) * 100.
-
-domain-rules.md sección 7.4: alerta cuando porcentajeUtilizado >= alertThreshold.
-
-8.5 PATCH /budgets/:id
-Descripción: Actualizar un presupuesto.
-
-Auth: Sí.
-
-Body: igual que POST /budgets (todos los campos opcionales).
-
-Response (200): igual que GET /budgets/:id.
-
-Errores:
-
-400: validación fallida.
-
-404: presupuesto no encontrado.
-
-8.6 DELETE /budgets/:id
-Descripción: Eliminar (soft delete) un presupuesto.
-
-Auth: Sí.
-
-Response (204): sin body.
-
-Errores:
-
-404: presupuesto no encontrado.
-
-8.7 POST /budgets/:id/restore
-Descripción: Restaurar un presupuesto borrado.
-
-Auth: Sí.
-
-Response (200): presupuesto restaurado.
-
-Errores:
-
-404: presupuesto no encontrado.
-
-8.8 POST /budgets/:id/copy
-Descripción: Copiar un presupuesto a otro período.
-
-Auth: Sí.
-
-Body:
-
-json
-{
-  "newStartDate": "2026-11-01T00:00:00-05:00",
-  "newEndDate": "2026-11-30T23:59:59-05:00"
-}
-Validaciones:
-
-newStartDate: válida.
-
-newEndDate: opcional, >= newStartDate.
-
-Response (201): nuevo presupuesto.
-
-Errores:
-
-400: validación fallida.
-
-404: presupuesto origen no encontrado.
-
-Reglas de negocio:
-
-domain-rules.md sección 7.5: copia amount, alertThreshold y categorías.
-
-No copia el gasto computable (se recalcula).
+Montos con dos decimales y fechas ISO 8601 con America/Lima (-05:00). La unicidad de budget_categories es parcial para relaciones activas.
 
 9. Módulo Savings Goals (/savings-goals)
 9.1 GET /savings-goals

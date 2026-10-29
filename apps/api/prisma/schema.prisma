@@ -58,9 +58,17 @@ enum ObligationPaymentStatus {
   CANCELLED
 }
 
+enum BudgetStatus {
+  UNDER_LIMIT
+  NEAR_LIMIT
+  OVER_LIMIT
+}
+
 enum BudgetPeriod {
   WEEKLY
   MONTHLY
+  QUARTERLY
+  YEARLY
 }
 
 enum GoalStatus {
@@ -303,6 +311,7 @@ model Budget {
   name           String
   period         BudgetPeriod
   amount         Decimal     @db.Decimal(19, 2)
+  currency       String      @default("PEN") @db.VarChar(3)
   startDate      DateTime    @map("start_date") @db.Date
   endDate        DateTime?   @map("end_date") @db.Date
   alertThreshold Int         @default(80) @map("alert_threshold")
@@ -320,14 +329,15 @@ model Budget {
 }
 
 model BudgetCategory {
-  id         String   @id @default(uuid())
-  budgetId   String   @map("budget_id")
-  categoryId String   @map("category_id")
-  budget     Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  id         String    @id @default(uuid())
+  budgetId   String    @map("budget_id")
+  categoryId String    @map("category_id")
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+  budget     Budget    @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@unique([budgetId, categoryId])
   @@index([categoryId])
+  @@index([budgetId, deletedAt])
   @@map("budget_categories")
 }
 
