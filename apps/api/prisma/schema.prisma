@@ -52,6 +52,12 @@ enum ObligationStatus {
   CANCELLED
 }
 
+enum ObligationPaymentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
 enum BudgetPeriod {
   WEEKLY
   MONTHLY
@@ -122,6 +128,7 @@ model Account {
   transfersIn       Transfer[]    @relation("TransferDestination")
   savingsGoals      SavingsGoal[]
   recurrences       Recurrence[]
+  obligations       Obligation[]
 
   @@index([userId, name])
   @@index([userId, deletedAt])
@@ -145,6 +152,7 @@ model Category {
   children         Category[]       @relation("CategoryHierarchy")
   transactions     Transaction[]
   recurrences      Recurrence[]
+  obligations      Obligation[]
   budgetCategories BudgetCategory[]
 
   @@index([userId, name, type])
@@ -242,19 +250,28 @@ model Obligation {
   id           String           @id @default(uuid())
   userId       String           @map("user_id")
   recurrenceId String?          @map("recurrence_id")
+  accountId    String           @map("account_id")
+  categoryId   String?          @map("category_id")
   name         String
+  type         TransactionType
   amount       Decimal          @db.Decimal(19, 2)
+  currency     String           @default("PEN") @db.VarChar(3)
+  description  String?
   dueDate      DateTime         @map("due_date") @db.Timestamptz(6)
   status       ObligationStatus @default(PENDING)
   periodStart  DateTime?        @map("period_start") @db.Date
   periodEnd    DateTime?        @map("period_end") @db.Date
+  paidAt       DateTime?        @map("paid_at") @db.Timestamptz(6)
+  cancelledAt  DateTime?        @map("cancelled_at") @db.Timestamptz(6)
   createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?        @map("deleted_at") @db.Timestamptz(6)
 
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recurrence  Recurrence?         @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
-  payments    ObligationPayment[]
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recurrence Recurrence?         @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  account    Account             @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category   Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  payments   ObligationPayment[]
 
   @@unique([recurrenceId, periodStart])
   @@index([userId, dueDate])
@@ -264,11 +281,13 @@ model Obligation {
 }
 
 model ObligationPayment {
-  id            String   @id @default(uuid())
-  obligationId  String   @map("obligation_id")
-  transactionId String   @map("transaction_id")
-  amount        Decimal  @db.Decimal(19, 2)
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id            String                    @id @default(uuid())
+  obligationId  String                    @map("obligation_id")
+  transactionId String                    @map("transaction_id")
+  amount        Decimal                   @db.Decimal(19, 2)
+  paidAt        DateTime                  @default(now()) @map("paid_at") @db.Timestamptz(6)
+  status        ObligationPaymentStatus   @default(CONFIRMED)
+  createdAt     DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   obligation  Obligation  @relation(fields: [obligationId], references: [id], onDelete: Restrict)
   transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)

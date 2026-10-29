@@ -13,6 +13,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { TransfersModule } from './transfers/transfers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { RecurrencesModule } from './recurrences/recurrences.module';
+import { ObligationsModule } from './obligations/obligations.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { RecurrencesModule } from './recurrences/recurrences.module';
     TransfersModule,
     DashboardModule,
     RecurrencesModule,
+    ObligationsModule,
   ],
   controllers: [AppController],
   providers: [

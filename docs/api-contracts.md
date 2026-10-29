@@ -1219,248 +1219,31 @@ su registro de categoría.
 - 400: período no válido, parámetros ISO 8601 incorrectos, falta `from` o `to` en período
   personalizado, o rango invertido.
 - 401: token ausente o inválido.
-
-7. Módulo Obligations (/obligations)
-7.1 GET /obligations
-Descripción: Listar obligaciones con filtros.
-
-Auth: Sí.
-
-Query params:
-
-status (opcional): PENDING | PAID | OVERDUE | CANCELLED.
-
-from (opcional): YYYY-MM-DD (sobre dueDate).
-
-to (opcional): YYYY-MM-DD.
-
-page (opcional): default 1.
-
-limit (opcional): default 20, máximo 100.
-
-includeDeleted (opcional): true.
-
-Response (200):
-
-json
-{
-  "data": [
-    {
-      "id": "550e8400-...",
-      "recurrenceId": "550e8400-...",
-      "name": "Luz",
-      "amount": "120.00",
-      "dueDate": "2026-10-15T00:00:00-05:00",
-      "status": "PENDING",
-      "paidAt": null,
-      "periodStart": "2026-10-01T00:00:00-05:00",
-      "createdAt": "2026-09-15T10:00:00-05:00"
-    }
-  ],
-  "meta": { "page": 1, "limit": 20, "total": 45, "totalPages": 3 }
-}
-Errores:
-
-401: token inválido.
-
-Reglas de negocio:
-
-Ordenado por dueDate ascendente.
-
-7.2 GET /obligations/upcoming
-Descripción: Próximas N obligaciones (para dashboard).
-
-Auth: Sí.
-
-Query params:
-
-days (opcional): default 30. Rango: 1-365.
-
-Response (200):
-
-json
-{
-  "data": [
-    {
-      "id": "550e8400-...",
-      "name": "Luz",
-      "amount": "120.00",
-      "dueDate": "2026-10-15T00:00:00-05:00",
-      "daysUntilDue": 5,
-      "status": "PENDING"
-    }
-  ]
-}
-Errores:
-
-401: token inválido.
-
-Reglas de negocio:
-
-Solo devuelve obligaciones PENDING o OVERDUE con dueDate <= now() + days.
-
-Ordenado por dueDate ascendente.
-
-7.3 POST /obligations
-Descripción: Crear una obligación puntual (sin recurrencia).
-
-Auth: Sí.
-
-Body:
-
-json
-{
-  "name": "Cumpleaños de mamá",
-  "amount": "200.00",
-  "dueDate": "2026-11-15T00:00:00-05:00"
-}
-Validaciones:
-
-name: 1-60 caracteres.
-
-amount: > 0.
-
-dueDate: válida.
-
-Response (201): igual que GET /obligations.
-
-Errores:
-
-400: validación fallida.
-
-Reglas de negocio:
-
-recurrenceId = null.
-
-status = PENDING.
-
-7.4 GET /obligations/:id
-Descripción: Obtener detalle de una obligación.
-
-Auth: Sí.
-
-Response (200): igual que GET /obligations.
-
-Errores:
-
-404: obligación no encontrada.
-
-7.5 POST /obligations/:id/pay
-Descripción: Marcar una obligación como pagada.
-
-Auth: Sí.
-
-Body:
-
-json
-{
-  "accountId": "550e8400-...",
-  "categoryId": "550e8400-...",
-  "date": "2026-10-15T10:00:00-05:00"
-}
-Validaciones:
-
-accountId: cuenta del usuario.
-
-categoryId: categoría del usuario o del sistema, tipo EXPENSE.
-
-date: no futura.
-
-Response (200):
-
-json
-{
-  "data": {
-    "obligation": {
-      "id": "550e8400-...",
-      "status": "PAID",
-      "paidAt": "2026-10-15T10:00:00-05:00"
-    },
-    "transaction": {
-      "id": "550e8400-...",
-      "accountId": "550e8400-...",
-      "type": "EXPENSE",
-      "amount": "120.00",
-      "obligationId": "550e8400-..."
-    }
-  }
-}
-Errores:
-
-400: validación fallida.
-
-404: obligación no encontrada.
-
-409: la obligación ya está pagada.
-
-Reglas de negocio:
-
-domain-rules.md sección 5.3:
-
-Se crea un movimiento EXPENSE con status = CONFIRMED, obligationId = obligación.id.
-
-La obligación pasa a PAID con paidAt seteado.
-
-Una obligación pagada no se puede pagar dos veces. Error 409 si se intenta.
-
-Toda la operación en una transacción de BD.
-
-El índice único parcial transactions_obligation_id_unique WHERE deleted_at IS NULL garantiza 1:1.
-
-7.6 PATCH /obligations/:id
-Descripción: Editar una obligación PENDING.
-
-Auth: Sí.
-
-Body:
-
-json
-{
-  "name": "Luz de casa",
-  "amount": "130.00",
-  "dueDate": "2026-11-15T00:00:00-05:00"
-}
-Validaciones:
-
-Solo obligaciones PENDING.
-
-Response (200): igual que GET /obligations/:id.
-
-Errores:
-
-404: obligación no encontrada.
-
-409: la obligación está PAID (no se puede editar).
-
-7.7 DELETE /obligations/:id
-Descripción: Eliminar (soft delete) una obligación PENDING o OVERDUE.
-
-Auth: Sí.
-
-Response (204): sin body.
-
-Errores:
-
-404: obligación no encontrada.
-
-409: la obligación está PAID.
-
-Reglas de negocio:
-
-Solo se pueden borrar PENDING o OVERDUE.
-
-Si está PAID, hay que anular el pago primero (borrar el movimiento vinculado).
-
-7.8 POST /obligations/:id/restore
-Descripción: Restaurar una obligación borrada.
-
-Auth: Sí.
-
-Response (200): obligación restaurada.
-
-Errores:
-
-404: obligación no encontrada.
+7. Modulo Obligations (/obligations)
+
+### Endpoints
+- POST /obligations crea una obligacion con accountId obligatorio.
+- GET /obligations lista sin paginacion con filtros.
+- GET /obligations/upcoming devuelve las cinco proximas obligaciones pendientes o parcialmente pagadas.
+- GET /obligations/:id incluye los pagos.
+- POST /obligations/:id/pay registra pagos parciales o totales.
+- PATCH /obligations/:id modifica una obligacion activa.
+- DELETE /obligations/:id aplica soft delete con CANCELLED.
+- POST /obligations/:id/restore restaura como PENDING.
+- POST /obligations/generate genera solo el periodo actual e es idempotente.
+
+### DTO de creacion
+name, amount, dueDate, accountId y type son obligatorios. categoryId, currency, description, recurrenceId, periodStart y periodEnd son opcionales.
+
+### Pago
+amount es opcional; si se omite se paga el saldo restante. accountId es obligatorio y paidAt y description son opcionales. Se crea una transaccion EXPENSE CONFIRMED, un ObligationPayment CONFIRMED y se actualiza el estado de la obligacion.
+
+### Filtros
+status, from, to, overdue, recurrenceId, accountId, categoryId e includeDeleted. No existe paginacion. Las fechas usan ISO 8601 y hora Lima -05:00.
+
+OVERDUE se calcula on-the-fly. ObligationStatus: PENDING, PARTIALLY_PAID, PAID, OVERDUE, CANCELLED.
+
+Errores: 400 monto invalido o excedente; 401 token ausente o invalido; 404 recurso inexistente o ajeno; 409 pagada o cancelada.
 
 8. Módulo Budgets (/budgets)
 8.1 GET /budgets
