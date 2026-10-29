@@ -11,6 +11,7 @@ import { PassportModule } from '@nestjs/passport';
 import request from 'supertest';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PrismaService } from '../prisma/prisma.service';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
@@ -41,6 +42,14 @@ describe('UsersController', () => {
       controllers: [UsersController],
       providers: [
         { provide: UsersService, useValue: usersService },
+        {
+          provide: PrismaService,
+          useValue: {
+            user: {
+              findFirst: jest.fn().mockResolvedValue({ id: 'user-1', email: 'test@example.com' }),
+            },
+          },
+        },
         JwtStrategy,
         Reflector,
         {
@@ -80,11 +89,12 @@ describe('UsersController', () => {
     await app.close();
   });
 
-  function authorizationHeader(): string {
-    return `Bearer ${jwtService.sign({
+  async function authorizationHeader(): Promise<string> {
+    const token = await jwtService.signAsync({
       sub: 'user-1',
       email: 'test@example.com',
-    })}`;
+    });
+    return `Bearer ${token}`;
   }
 
   it('PATCH /users/me autenticado devuelve 200 con sobre data', async () => {
@@ -99,7 +109,7 @@ describe('UsersController', () => {
 
     await request(app.getHttpServer())
       .patch('/users/me')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .send({ name: 'Nuevo nombre' })
       .expect(200)
       .expect({ data: user });
@@ -118,7 +128,7 @@ describe('UsersController', () => {
   it('PATCH /users/me/password autenticado devuelve 204 sin body', async () => {
     const response = await request(app.getHttpServer())
       .patch('/users/me/password')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .send({ currentPassword: 'old-password', newPassword: 'new-password' })
       .expect(204);
 
@@ -139,7 +149,7 @@ describe('UsersController', () => {
   it('DELETE /users/me autenticado devuelve 204 sin body', async () => {
     const response = await request(app.getHttpServer())
       .delete('/users/me')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .send({ password: 'old-password' })
       .expect(204);
 
@@ -159,7 +169,7 @@ describe('UsersController', () => {
   it('PATCH /users/me rechaza email no permitido con 400', async () => {
     await request(app.getHttpServer())
       .patch('/users/me')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .send({ email: 'other@example.com' })
       .expect(400);
   });

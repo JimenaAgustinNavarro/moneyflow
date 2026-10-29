@@ -8,6 +8,7 @@ import request from 'supertest';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
+import { PrismaService } from '../prisma/prisma.service';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 
@@ -44,6 +45,14 @@ describe('CategoriesController', () => {
       controllers: [CategoriesController],
       providers: [
         { provide: CategoriesService, useValue: categoriesService },
+        {
+          provide: PrismaService,
+          useValue: {
+            user: {
+              findFirst: jest.fn().mockResolvedValue({ id: 'user-1', email: 'test@example.com' }),
+            },
+          },
+        },
         JwtStrategy,
         Reflector,
         {
@@ -87,8 +96,12 @@ describe('CategoriesController', () => {
     await app.close();
   });
 
-  function authorizationHeader(): string {
-    return `Bearer ${jwtService.sign({ sub: 'user-1', email: 'test@example.com' })}`;
+  async function authorizationHeader(): Promise<string> {
+    const token = await jwtService.signAsync({
+      sub: 'user-1',
+      email: 'test@example.com',
+    });
+    return `Bearer ${token}`;
   }
 
   it('GET /categories devuelve { data } y aplica filtros', async () => {
@@ -96,7 +109,7 @@ describe('CategoriesController', () => {
 
     await request(app.getHttpServer())
       .get('/categories?type=INCOME&includeDeleted=true')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .expect(200)
       .expect({ data: [{ id: 'category-1' }] });
 
@@ -113,7 +126,7 @@ describe('CategoriesController', () => {
   it('GET /categories rechaza filtros inválidos', async () => {
     await request(app.getHttpServer())
       .get('/categories?type=INVALID')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .expect(400);
 
     expect(categoriesService.findAll).not.toHaveBeenCalled();
@@ -122,7 +135,7 @@ describe('CategoriesController', () => {
   it('POST /categories valida el DTO y devuelve { data }', async () => {
     await request(app.getHttpServer())
       .post('/categories')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .send({ name: 'Mascotas', type: 'EXPENSE', color: '#f59e0b' })
       .expect(201)
       .expect({ data: { id: 'category-1' } });
@@ -137,7 +150,7 @@ describe('CategoriesController', () => {
   it('POST /categories rechaza campos no permitidos', async () => {
     await request(app.getHttpServer())
       .post('/categories')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .send({ name: 'Mascotas', type: 'EXPENSE', userId: 'user-2' })
       .expect(400);
 
@@ -147,7 +160,7 @@ describe('CategoriesController', () => {
   it('GET /categories/:id devuelve { data }', async () => {
     await request(app.getHttpServer())
       .get('/categories/category-1')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .expect(200)
       .expect({ data: { id: 'category-1' } });
 
@@ -157,7 +170,7 @@ describe('CategoriesController', () => {
   it('PATCH /categories/:id valida y actualiza la categoría', async () => {
     await request(app.getHttpServer())
       .patch('/categories/category-1')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .send({ name: 'Alimentos' })
       .expect(200)
       .expect({ data: { id: 'category-1' } });
@@ -170,7 +183,7 @@ describe('CategoriesController', () => {
   it('PATCH /categories/:id rechaza type y parentId', async () => {
     await request(app.getHttpServer())
       .patch('/categories/category-1')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .send({ type: 'INCOME' })
       .expect(400);
 
@@ -180,7 +193,7 @@ describe('CategoriesController', () => {
   it('DELETE /categories/:id devuelve 204 sin body', async () => {
     const response = await request(app.getHttpServer())
       .delete('/categories/category-1')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .expect(204);
 
     expect(response.text).toBe('');
@@ -190,7 +203,7 @@ describe('CategoriesController', () => {
   it('POST /categories/:id/restore devuelve { data }', async () => {
     await request(app.getHttpServer())
       .post('/categories/category-1/restore')
-      .set('Authorization', authorizationHeader())
+      .set('Authorization', await authorizationHeader())
       .expect(200)
       .expect({ data: { id: 'category-1' } });
 
