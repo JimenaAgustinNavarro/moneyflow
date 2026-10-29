@@ -3,7 +3,12 @@ import { CreateRecurrenceDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecurrencesService } from './recurrences.service';
 
-const recurrence = (overrides: Record<string, unknown> = {}) =>
+type RecurrenceWithRelations = Recurrence & {
+  account: { id: string; name: string } | null;
+  category: { id: string; name: string } | null;
+};
+
+const recurrence = (overrides: Record<string, unknown> = {}): RecurrenceWithRelations =>
   ({
     id: 'recurrence-1',
     userId: 'user-1',
@@ -20,8 +25,10 @@ const recurrence = (overrides: Record<string, unknown> = {}) =>
     createdAt: new Date('2026-01-01T05:00:00.000Z'),
     updatedAt: new Date('2026-01-01T05:00:00.000Z'),
     deletedAt: null,
+    account: { id: 'account-1', name: 'Cuenta principal' },
+    category: { id: 'category-1', name: 'Servicios' },
     ...overrides,
-  }) as unknown as Recurrence;
+  }) as unknown as RecurrenceWithRelations;
 
 describe('RecurrencesService', () => {
   let service: RecurrencesService;
@@ -31,6 +38,28 @@ describe('RecurrencesService', () => {
   });
 
   afterEach(() => jest.useRealTimers());
+
+  it('serializa los datos de cuenta y categoría', () => {
+    const result = service['serialize'](recurrence());
+
+    expect(result).toMatchObject({
+      accountId: 'account-1',
+      accountName: 'Cuenta principal',
+      categoryId: 'category-1',
+      categoryName: 'Servicios',
+    });
+  });
+
+  it('serializa relaciones nulas sin datos derivados', () => {
+    const result = service['serialize'](recurrence({ account: null, category: null }));
+
+    expect(result).toMatchObject({
+      accountId: null,
+      accountName: null,
+      categoryId: null,
+      categoryName: null,
+    });
+  });
 
   it('rechaza montos iguales o menores a cero', async () => {
     await expect(

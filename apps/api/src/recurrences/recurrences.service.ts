@@ -40,7 +40,10 @@ export class RecurrencesService {
       .replace(/Z$/, '-05:00');
   }
 
-  private serialize(recurrence: Recurrence) {
+  private serialize(recurrence: Recurrence & {
+    account: { id: string; name: string } | null;
+    category: { id: string; name: string } | null;
+  }) {
     return {
       id: recurrence.id,
       userId: recurrence.userId,
@@ -51,10 +54,14 @@ export class RecurrencesService {
       description: recurrence.description,
       frequency: recurrence.frequency,
       dayOfPeriod: recurrence.dayOfPeriod,
-      startDate: this.toLimaIso(recurrence.startDate),
-      endDate: recurrence.endDate ? this.toLimaIso(recurrence.endDate) : null,
+      startDate: recurrence.startDate.toISOString(),
+      endDate: recurrence.endDate?.toISOString() ?? null,
       nextDueDate: this.calculateNextDueDate(recurrence),
       active: recurrence.active,
+      accountId: recurrence.account?.id ?? null,
+      accountName: recurrence.account?.name ?? null,
+      categoryId: recurrence.category?.id ?? null,
+      categoryName: recurrence.category?.name ?? null,
       createdAt: recurrence.createdAt.toISOString(),
       updatedAt: recurrence.updatedAt.toISOString(),
       deletedAt: recurrence.deletedAt?.toISOString() ?? null,
@@ -167,6 +174,10 @@ export class RecurrencesService {
           accountId: dto.accountId,
           categoryId: dto.categoryId ?? null,
         },
+        include: {
+          account: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true } },
+        },
       });
       return this.serialize(recurrence);
     });
@@ -182,12 +193,25 @@ export class RecurrencesService {
       ...(query.accountId && { accountId: query.accountId }),
       ...(query.categoryId && { categoryId: query.categoryId }),
     };
-    const recurrences = await this.prisma.recurrence.findMany({ orderBy: { createdAt: 'desc' }, where });
+    const recurrences = await this.prisma.recurrence.findMany({
+      orderBy: { createdAt: 'desc' },
+      where,
+      include: {
+        account: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+      },
+    });
     return { data: recurrences.map((recurrence) => this.serialize(recurrence)) };
   }
 
   async findOne(userId: string, id: string) {
-    const recurrence = await this.prisma.recurrence.findFirst({ where: { id, userId, deletedAt: null } });
+    const recurrence = await this.prisma.recurrence.findFirst({
+      where: { id, userId, deletedAt: null },
+      include: {
+        account: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+      },
+    });
     if (!recurrence) throw new NotFoundException('Recurrencia no encontrada.');
     return this.serialize(recurrence);
   }
@@ -219,6 +243,10 @@ export class RecurrencesService {
           ...(dto.accountId !== undefined && { accountId: dto.accountId }),
           ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
         },
+        include: {
+          account: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true } },
+        },
       });
       return this.serialize(recurrence);
     });
@@ -233,14 +261,28 @@ export class RecurrencesService {
   async restore(userId: string, id: string) {
     const recurrence = await this.prisma.recurrence.findFirst({ where: { id, userId, deletedAt: { not: null } } });
     if (!recurrence) throw new NotFoundException('Recurrencia no encontrada.');
-    const restored = await this.prisma.recurrence.update({ where: { id }, data: { deletedAt: null } });
+    const restored = await this.prisma.recurrence.update({
+      where: { id },
+      data: { deletedAt: null },
+      include: {
+        account: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+      },
+    });
     return this.serialize(restored);
   }
 
   async toggle(userId: string, id: string) {
     const recurrence = await this.prisma.recurrence.findFirst({ where: { id, userId, deletedAt: null } });
     if (!recurrence) throw new NotFoundException('Recurrencia no encontrada.');
-    const toggled = await this.prisma.recurrence.update({ where: { id }, data: { active: !recurrence.active } });
+    const toggled = await this.prisma.recurrence.update({
+      where: { id },
+      data: { active: !recurrence.active },
+      include: {
+        account: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+      },
+    });
     return this.serialize(toggled);
   }
 }

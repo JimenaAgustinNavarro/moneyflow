@@ -1100,15 +1100,28 @@ Todas las operaciones requieren autenticación.
 
 Lista las recurrencias del usuario sin paginación. Filtros opcionales: `active`, `type`, `accountId`, `categoryId` e `includeDeleted`.
 
-Response `200`: `{ "data": [] }`.
+Response `200`: `{ "data": [] }`. Cada recurrencia incluida contiene `accountId`, `accountName`, `categoryId` y `categoryName`.
 
 #### POST /recurrences
 
-Response `201`: `{ "data": { "id": "uuid", "currency": "PEN" } }`.
+Response `201`:
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "accountId": "uuid",
+    "accountName": "Cuenta principal",
+    "categoryId": "uuid",
+    "categoryName": "Servicios",
+    "currency": "PEN"
+  }
+}
+```
 
 #### GET /recurrences/:id
 
-Response `200`: recurrencia individual dentro de `{ data }`.
+Response `200`: recurrencia individual dentro de `{ data }`, incluyendo `accountId`, `accountName`, `categoryId` y `categoryName`. Los nombres relacionados pueden ser `null` si la relación no existe.
 
 #### PATCH /recurrences/:id
 
