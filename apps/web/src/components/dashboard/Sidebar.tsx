@@ -27,7 +27,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-border/80 bg-card/90 backdrop-blur-sm">
+    <aside className="flex h-screen w-16 shrink-0 flex-col border-r border-border/80 bg-card/90 backdrop-blur-sm md:w-64">
       <div className="flex h-16 items-center border-b border-border/80 px-6">
         <span className="text-lg font-semibold tracking-tight text-primary">MoneyFlow</span>
       </div>
@@ -40,11 +40,12 @@ export function Sidebar() {
               <span
                 key={href}
                 aria-disabled="true"
+                aria-label={label}
                 title="Próximamente"
                 className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground opacity-50"
               >
                 <Icon aria-hidden="true" size={18} className="opacity-80" />
-                {label}
+                <span className="hidden md:inline">{label}</span>
               </span>
             );
           }
@@ -54,6 +55,8 @@ export function Sidebar() {
               key={href}
               href={href}
               aria-current={isActive ? 'page' : undefined}
+              aria-label={label}
+              title={label}
               className="group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground transition-all duration-200 hover:translate-x-0.5 hover:bg-accent/80"
             >
               {isActive && (
@@ -68,7 +71,7 @@ export function Sidebar() {
                 size={18}
                 className="relative z-10 transition-transform duration-200 group-hover:scale-110"
               />
-              <span className="relative z-10 font-medium">{label}</span>
+              <span className="relative z-10 hidden font-medium md:inline">{label}</span>
             </Link>
           );
         })}

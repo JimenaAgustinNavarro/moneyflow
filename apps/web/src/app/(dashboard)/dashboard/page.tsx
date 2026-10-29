@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 
-import { Button } from '@/components/ui/button';
+import { AccountFilter } from '@/components/dashboard/AccountFilter';
 import { CashFlowChart } from '@/components/dashboard/CashFlowChart';
 import { CategoryChart } from '@/components/dashboard/CategoryChart';
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
+import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { SummaryCards } from '@/components/dashboard/SummaryCards';
 import { useDashboardSummary } from '@/hooks/useDashboardSummary';
@@ -25,20 +25,17 @@ export default function DashboardPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">Resumen de tus finanzas.</p>
         </div>
-        <nav aria-label="Enlaces rápidos" className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <Link href="/transactions">Ver movimientos</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/categories">Ver categorías</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/accounts">Ver cuentas</Link>
-          </Button>
-        </nav>
       </header>
 
-      <PeriodSelector filters={filters} onChange={setFilters} />
+      <QuickActions />
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <PeriodSelector filters={filters} onChange={setFilters} />
+        <AccountFilter
+          value={filters.accountId}
+          onChange={(accountId) => setFilters((previous) => ({ ...previous, accountId }))}
+        />
+      </div>
 
       {query.error && (
         <p

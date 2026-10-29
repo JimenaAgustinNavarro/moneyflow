@@ -1,18 +1,37 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DashboardSummary } from '@/types/dashboard';
 
 const mocks = vi.hoisted(() => ({
   useDashboardSummary: vi.fn(),
+  useAccounts: vi.fn(),
 }));
 
 vi.mock('@/hooks/useDashboardSummary', () => ({
   useDashboardSummary: mocks.useDashboardSummary,
 }));
 
+vi.mock('@/hooks/useAccounts', () => ({
+  useAccounts: mocks.useAccounts,
+}));
+
 import DashboardPage from './page';
+
+Object.defineProperty(HTMLElement.prototype, 'hasPointerCapture', {
+  configurable: true,
+  value: () => false,
+});
+Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
+  configurable: true,
+  value: () => undefined,
+});
+Object.defineProperty(HTMLElement.prototype, 'releasePointerCapture', {
+  configurable: true,
+  value: () => undefined,
+});
 
 const summary: DashboardSummary = {
   period: {
@@ -55,6 +74,12 @@ function renderDashboard() {
 describe('DashboardPage', () => {
   beforeEach(() => {
     mocks.useDashboardSummary.mockReset();
+    mocks.useAccounts.mockReset();
+    mocks.useAccounts.mockReturnValue({
+      data: [{ id: 'account-1', name: 'Cuenta principal' }],
+      isLoading: false,
+      error: null,
+    });
   });
 
   it('muestra las cuatro tarjetas, el selector y movimientos reales', () => {
@@ -75,12 +100,45 @@ describe('DashboardPage', () => {
       'aria-pressed',
       'true',
     );
+    expect(screen.getByRole('combobox', { name: 'Cuenta' })).toHaveTextContent(
+      'Todas las cuentas',
+    );
     expect(screen.getByText('Almuerzo')).toBeInTheDocument();
     expect(screen.getByText('Alimentación')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Ver movimientos' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Nuevo movimiento' })).toHaveAttribute(
       'href',
       '/transactions',
     );
+    expect(screen.getByRole('link', { name: 'Nueva transferencia' })).toHaveAttribute(
+      'href',
+      '/transactions',
+    );
+    expect(screen.getByRole('link', { name: 'Cuentas' })).toHaveAttribute('href', '/accounts');
+    expect(screen.getByRole('link', { name: 'Categorías' })).toHaveAttribute(
+      'href',
+      '/categories',
+    );
+  });
+
+  it('actualiza el filtro de cuenta usado por el resumen', async () => {
+    mocks.useDashboardSummary.mockReturnValue({
+      data: summary,
+      isLoading: false,
+      error: null,
+    });
+
+    const user = userEvent.setup();
+    renderDashboard();
+
+    await user.click(screen.getByRole('combobox', { name: 'Cuenta' }));
+    await user.click(await screen.findByRole('option', { name: 'Cuenta principal' }));
+
+    await waitFor(() => {
+      expect(mocks.useDashboardSummary).toHaveBeenLastCalledWith({
+        period: 'month',
+        accountId: 'account-1',
+      });
+    });
   });
 
   it('muestra skeletons mientras carga el resumen', () => {
