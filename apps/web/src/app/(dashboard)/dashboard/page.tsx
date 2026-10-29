@@ -1,101 +1,69 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Animated } from '@/components/ui/motion';
-import { authenticatedRequest } from '@/lib/api-client';
-
-type AuthenticatedUserResponse = {
-  id: string;
-  email: string;
-  name: string;
-  timezone: string;
-  createdAt: string;
-};
+import { CashFlowChart } from '@/components/dashboard/CashFlowChart';
+import { CategoryChart } from '@/components/dashboard/CategoryChart';
+import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
+import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
+import { SummaryCards } from '@/components/dashboard/SummaryCards';
+import { useDashboardSummary } from '@/hooks/useDashboardSummary';
+import type { DashboardFilters } from '@/types/dashboard';
 
 export default function DashboardPage() {
-  const [name, setName] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    authenticatedRequest<AuthenticatedUserResponse>('/auth/me')
-      .then((user) => {
-        if (isMounted) {
-          setName(user.name);
-        }
-      })
-      .catch((error: unknown) => {
-        if (isMounted) {
-          setLoadError(error instanceof Error ? error.message : 'No se pudo cargar tu perfil.');
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const overviewCards = [
-    { title: 'Saldo total', value: 'S/ 0.00', tone: 'text-primary' },
-    { title: 'Ingresos del mes', value: 'S/ 0.00', tone: 'text-emerald-500' },
-    { title: 'Egresos del mes', value: 'S/ 0.00', tone: 'text-rose-500' },
-  ];
+  const [filters, setFilters] = useState<DashboardFilters>({ period: 'month' });
+  const query = useDashboardSummary(filters);
 
   return (
     <div className="space-y-6">
-      <Animated variant="fadeIn" className="flex flex-wrap items-center justify-between gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Bienvenido{name ? `, ${name}` : ''}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">Este es tu resumen financiero.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">Resumen de tus finanzas.</p>
         </div>
-
-        <div className="flex flex-wrap gap-2">
+        <nav aria-label="Enlaces rápidos" className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
             <Link href="/transactions">Ver movimientos</Link>
           </Button>
           <Button asChild variant="outline">
             <Link href="/categories">Ver categorías</Link>
           </Button>
-          <Button
-            asChild
-            className="shadow-md shadow-primary/15 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20"
-          >
+          <Button asChild>
             <Link href="/accounts">Ver cuentas</Link>
           </Button>
-        </div>
-      </Animated>
+        </nav>
+      </header>
 
-      {loadError && (
+      <PeriodSelector filters={filters} onChange={setFilters} />
+
+      {query.error && (
         <p
           role="alert"
           className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
         >
-          {loadError}
+          {query.error instanceof Error ? query.error.message : 'No se pudo cargar el dashboard.'}
         </p>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {overviewCards.map(({ title, value, tone }, index) => (
-          <Animated key={title} variant="staggerItem" delay={index * 0.08}>
-            <Card className="moneyflow-card-hover border border-border/80 bg-card/80 shadow-sm hover:border-primary/20">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className={`text-2xl font-bold tracking-tight ${tone}`}>{value}</p>
-                <p className="mt-2 text-xs text-muted-foreground">Próximamente</p>
-              </CardContent>
-            </Card>
-          </Animated>
-        ))}
+      <SummaryCards summary={query.data} isLoading={query.isLoading} />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* FIX-DASHBOARD-05: el endpoint todavía no expone una serie temporal. */}
+        <CashFlowChart data={[]} isLoading={query.isLoading} />
+        <CategoryChart data={query.data?.topCategories ?? []} isLoading={query.isLoading} />
       </div>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">Movimientos recientes</h2>
+        <RecentTransactions
+          transactions={query.data?.recentTransactions ?? []}
+          isLoading={query.isLoading}
+        />
+      </section>
     </div>
   );
 }
