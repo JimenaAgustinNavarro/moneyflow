@@ -38,7 +38,9 @@ enum TransferStatus {
 
 enum RecurrenceFrequency {
   WEEKLY
+  BIWEEKLY
   MONTHLY
+  QUARTERLY
   YEARLY
 }
 
@@ -207,25 +209,28 @@ model Transfer {
 }
 
 model Recurrence {
-  id          String              @id @default(uuid())
-  userId      String              @map("user_id")
-  name        String
-  amount      Decimal             @db.Decimal(19, 2)
-  type        TransactionType
-  categoryId  String?             @map("category_id")
-  accountId   String?             @map("account_id")
-  frequency   RecurrenceFrequency
-  dayOfPeriod Int                 @map("day_of_period")
-  startDate   DateTime            @map("start_date") @db.Timestamptz(6)
-  endDate     DateTime?           @map("end_date") @db.Timestamptz(6)
-  active      Boolean             @default(true)
-  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt   DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  id              String              @id @default(uuid())
+  userId          String              @map("user_id")
+  name            String
+  amount          Decimal             @db.Decimal(19, 2)
+  currency        String              @default("PEN") @db.VarChar(3)
+  type            TransactionType
+  description     String?
+  categoryId      String?             @map("category_id")
+  accountId       String              @map("account_id")
+  frequency       RecurrenceFrequency
+  dayOfPeriod     Int?                @map("day_of_period")
+  startDate       DateTime            @map("start_date") @db.Timestamptz(6)
+  endDate         DateTime?           @map("end_date") @db.Timestamptz(6)
+  lastGeneratedAt DateTime?           @map("last_generated_at") @db.Timestamptz(6)
+  active          Boolean             @default(true)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?           @map("deleted_at") @db.Timestamptz(6)
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  account     Account?    @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  account     Account     @relation(fields: [accountId], references: [id], onDelete: Restrict)
   obligations Obligation[]
 
   @@index([userId, active])

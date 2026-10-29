@@ -1092,197 +1092,61 @@ El estado pasa de `CONFIRMED` a `CANCELLED` y se registra `cancelledAt`. El bala
 
 ## 6. Módulos complementarios
 
-### 6.1 `GET /recurrences`
+### 6.1-6.7 Recurrencias
 
-**Descripción:** Listar recurrencias del usuario.
+Todas las operaciones requieren autenticación.
 
-**Auth:** Sí.
+#### GET /recurrences
 
-**Query params:**
+Lista las recurrencias del usuario sin paginación. Filtros opcionales: `active`, `type`, `accountId`, `categoryId` e `includeDeleted`.
 
-- `active` (opcional): `true` | `false`.
-- `includeDeleted` (opcional): `true`.
+Response `200`: `{ "data": [] }`.
 
-**Response (200):**
+#### POST /recurrences
 
-```json
-{
-  "data": [
-    {
-      "id": "550e8400-...",
-      "name": "Luz",
-      "amount": "120.00",
-      "type": "EXPENSE",
-      "categoryId": "550e8400-...",
-      "accountId": "550e8400-...",
-      "frequency": "MONTHLY",
-      "dayOfPeriod": 15,
-      "startDate": "2026-01-15T00:00:00-05:00",
-      "endDate": null,
-      "active": true,
-      "createdAt": "2026-01-15T10:00:00-05:00"
-    }
-  ]
-}
-Errores:
+Response `201`: `{ "data": { "id": "uuid", "currency": "PEN" } }`.
 
-401: token inválido.
+#### GET /recurrences/:id
 
-6.2 POST /recurrences
-Descripción: Crear una recurrencia.
+Response `200`: recurrencia individual dentro de `{ data }`.
 
-Auth: Sí.
+#### PATCH /recurrences/:id
 
-Body:
+Cuerpo opcional con los mismos campos que POST. Response `200` dentro de `{ data }`.
 
-json
-{
-  "name": "Luz",
-  "amount": "120.00",
-  "type": "EXPENSE",
-  "categoryId": "550e8400-...",
-  "accountId": "550e8400-...",
-  "frequency": "MONTHLY",
-  "dayOfPeriod": 15,
-  "startDate": "2026-01-15T00:00:00-05:00",
-  "endDate": null
-}
-Validaciones:
+#### DELETE /recurrences/:id
 
-name: 1-60 caracteres.
+Soft delete. Response `204`, sin cuerpo.
 
-amount: > 0.
+#### POST /recurrences/:id/restore
 
-type: INCOME | EXPENSE.
+Response `200` dentro de `{ data }`, con `deletedAt` restaurado a `null`.
 
-categoryId: opcional, del tipo correcto.
+#### PATCH /recurrences/:id/toggle
 
-accountId: opcional, del usuario.
+Alterna `active`. Response `200` dentro de `{ data }`.
 
-frequency: WEEKLY | MONTHLY | YEARLY.
+#### Cuerpo común
 
-dayOfPeriod: según frecuencia (1-7 semanal, 1-31 mensual, 1-366 anual).
+- `name`: texto requerido, máximo 255 caracteres.
+- `type`: `INCOME` | `EXPENSE`.
+- `amount`: decimal positivo con máximo dos decimales.
+- `currency`: tres letras mayúsculas; opcional, por defecto `PEN`.
+- `description`: texto opcional, máximo 500 caracteres.
+- `frequency`: `WEEKLY`, `BIWEEKLY`, `MONTHLY`, `QUARTERLY` o `YEARLY`.
+- `dayOfPeriod`: entero opcional de 1 a 31.
+- `startDate`: ISO 8601 con zona horaria.
+- `endDate`: ISO 8601 opcional con zona horaria, posterior o igual a `startDate`.
+- `accountId`: UUID requerido, cuenta activa, no eliminada y propiedad del usuario.
+- `categoryId`: UUID opcional, categoría propia o de sistema compatible con `type`.
 
-startDate: válida.
+#### Respuestas y cálculo
 
-endDate: opcional, >= startDate.
-
-Response (201): igual que GET /recurrences.
-
-Errores:
-
-400: validación fallida.
-
-404: categoría o cuenta no encontrada.
-
-422: dayOfPeriod fuera de rango para la frecuencia.
-
-Reglas de negocio:
-
-domain-rules.md sección 5.1: se crea la recurrencia. No se generan obligaciones inmediatamente. El cron diario se encarga.
-
-domain-rules.md sección 5.2: el cron genera obligaciones para los próximos 30 días con idempotencia por (recurrenceId, periodStart).
-
-6.3 GET /recurrences/:id
-Descripción: Obtener detalle de una recurrencia.
-
-Auth: Sí.
-
-Response (200): igual que GET /recurrences.
-
-Errores:
-
-404: recurrencia no encontrada.
-
-6.4 PATCH /recurrences/:id
-Descripción: Actualizar una recurrencia.
-
-Auth: Sí.
-
-Body: igual que POST /recurrences (todos los campos opcionales).
-
-Response (200): igual que GET /recurrences/:id.
-
-Errores:
-
-400: validación fallida.
-
-404: recurrencia no encontrada.
-
-Reglas de negocio:
-
-domain-rules.md sección 5.4: solo se puede editar una recurrencia active = true.
-
-Los cambios afectan a obligaciones futuras, no a las ya generadas.
-
-6.5 DELETE /recurrences/:id
-Descripción: Eliminar (soft delete) una recurrencia.
-
-Auth: Sí.
-
-Response (204): sin body.
-
-Errores:
-
-404: recurrencia no encontrada.
-
-Reglas de negocio:
-
-domain-rules.md sección 5.6:
-
-Borra las obligaciones PENDING asociadas.
-
-Borra las obligaciones OVERDUE asociadas.
-
-Conserva las obligaciones PAID (historial) y las deja con recurrenceId = null.
-
-Se marca deletedAt = now() en la recurrencia.
-
-6.6 POST /recurrences/:id/restore
-Descripción: Restaurar una recurrencia borrada.
-
-Auth: Sí.
-
-Response (200): recurrencia restaurada.
-
-Errores:
-
-404: recurrencia no encontrada.
-
-Reglas de negocio:
-
-deletedAt = null.
-
-El cron vuelve a generar obligaciones futuras.
-
-6.7 PATCH /recurrences/:id/toggle
-Descripción: Pausar o reactivar una recurrencia.
-
-Auth: Sí.
-
-Body: ninguno.
-
-Response (200):
-
-json
-{
-  "data": {
-    "id": "550e8400-...",
-    "active": false,
-    "updatedAt": "2026-10-16T15:00:00-05:00"
-  }
-}
-Errores:
-
-404: recurrencia no encontrada.
-
-Reglas de negocio:
-
-Cambia active = !active.
-
-Si active = false, el cron deja de generar obligaciones.
-
-Las obligaciones PENDING existentes se conservan.
+- `nextDueDate` se calcula desde la hora actual, no se persiste y usa la zona America/Lima (`-05:00`). Es `null` si la recurrencia terminó o si la siguiente ocurrencia excede `endDate`.
+- Frecuencias semanales avanzan 7 días y quincenales 14 días. Mensuales, trimestrales y anuales ajustan el día solicitado al último día disponible del mes. El día 31 de febrero se representa como 28 o 29 según corresponda.
+- Errores comunes: `400` para validación, `401` sin autenticación y `404` para recursos inexistentes o ajenos al usuario.
+- La creación de recurrencias no genera obligaciones; esa generación corresponde a MF-27.
+- El listado no incluye paginación. Para volúmenes mayores de 100 recurrencias se evaluará paginación en FIX-RECURRENCE-02.
 
 ### 6.8 `GET /dashboard/summary`
 
