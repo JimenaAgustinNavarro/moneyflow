@@ -1090,7 +1090,7 @@ El estado pasa de `CONFIRMED` a `CANCELLED` y se registra `cancelledAt`. El bala
 
 ---
 
-## 6. Módulo Recurrences (`/recurrences`)
+## 6. Módulos complementarios
 
 ### 6.1 `GET /recurrences`
 
@@ -1283,6 +1283,75 @@ Cambia active = !active.
 Si active = false, el cron deja de generar obligaciones.
 
 Las obligaciones PENDING existentes se conservan.
+
+### 6.8 `GET /dashboard/summary`
+
+**Descripción:** Obtener un resumen financiero para el usuario autenticado.
+
+**Auth:** Sí.
+
+**Query params:**
+
+- `period` (opcional): `month` (valor predeterminado), `last_month`,
+  `last_3_months` o `custom`.
+- `from` y `to` (obligatorios cuando `period=custom`): fecha ISO 8601. Las fechas sin hora
+  incluyen el día completo en `America/Lima` (UTC-05:00); las fechas y horas deben incluir
+  zona horaria.
+- `accountId` (opcional): UUID de cuenta para filtrar los movimientos y el balance.
+
+**Response (200):**
+
+```json
+{
+  "data": {
+    "period": {
+      "from": "2026-10-01T00:00:00.000-05:00",
+      "to": "2026-10-31T23:59:59.999-05:00"
+    },
+    "totalBalance": "1250.00",
+    "periodIncome": "1500.00",
+    "periodExpense": "250.00",
+    "netFlow": "1250.00",
+    "topCategories": [
+      {
+        "categoryId": "550e8400-...",
+        "categoryName": "Alimentación",
+        "total": "180.00",
+        "count": 4
+      }
+    ],
+    "recentTransactions": [
+      {
+        "id": "550e8400-...",
+        "type": "EXPENSE",
+        "amount": "45.00",
+        "currency": "PEN",
+        "date": "2026-10-28T12:30:00.000-05:00",
+        "description": "Almuerzo",
+        "categoryId": "550e8400-..."
+      }
+    ],
+    "committedMoney": null,
+    "upcomingPayments": [],
+    "topBudgets": []
+  }
+}
+```
+
+`totalBalance` suma nominalmente los balances de cuentas activas (no archivadas ni
+eliminadas); no convierte entre monedas. `recentTransactions` contiene los diez movimientos
+confirmados más recientes, independientemente del período, y respeta `accountId` cuando se
+envía. Los importes se serializan como strings con dos decimales. Las fechas de período y
+movimientos se devuelven en `America/Lima` con offset `-05:00`.
+
+`committedMoney`, `upcomingPayments` y `topBudgets` permanecen vacíos (`null` o `[]`) hasta
+implementar obligaciones y presupuestos en Sprint 5.
+
+**Errores:**
+
+- 400: período no válido, parámetros ISO 8601 incorrectos, falta `from` o `to` en período
+  personalizado, o rango invertido.
+- 401: token ausente o inválido.
 
 7. Módulo Obligations (/obligations)
 7.1 GET /obligations
