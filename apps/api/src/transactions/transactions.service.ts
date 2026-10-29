@@ -29,12 +29,8 @@ export class TransactionsService {
       amount: transaction.amount.toFixed(2),
       currency: transaction.currency,
       description: transaction.description,
-      date: transaction.date.toISOString(),
+      date: transaction.occurredAt.toISOString(),
       status: transaction.status,
-      direction: transaction.direction ?? null,
-      transferId: transaction.transferId,
-      counterpartAccountId: transaction.counterpartAccountId,
-      obligationId: transaction.obligationId,
       createdAt: transaction.createdAt.toISOString(),
       updatedAt: transaction.updatedAt.toISOString(),
     };
@@ -123,28 +119,6 @@ export class TransactionsService {
     return new Date(nextDay.getTime() - 1);
   }
 
-  private async applyBalanceEffect(
-    tx: Prisma.TransactionClient,
-    transaction: Pick<Transaction, 'accountId' | 'type' | 'amount' | 'status'>,
-    direction: 'apply' | 'revert',
-  ): Promise<void> {
-    if (transaction.status !== TransactionStatus.CONFIRMED) return;
-
-    let delta: Prisma.Decimal;
-    if (transaction.type === TransactionType.INCOME) {
-      delta = direction === 'apply' ? transaction.amount : transaction.amount.negated();
-    } else if (transaction.type === TransactionType.EXPENSE) {
-      delta = direction === 'apply' ? transaction.amount.negated() : transaction.amount;
-    } else {
-      return;
-    }
-
-    await tx.account.update({
-      where: { id: transaction.accountId },
-      data: { balance: { increment: delta } },
-    });
-  }
-
   async findAll(userId: string, query: TransactionQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -164,7 +138,7 @@ export class TransactionsService {
       if (from && to && from > to) {
         throw new BadRequestException('El rango de fechas no es válido.');
       }
-      where.date = {
+      where.occurredAt = {
         ...(from && { gte: from }),
         ...(to && { lte: to }),
       };
@@ -174,7 +148,7 @@ export class TransactionsService {
       this.prisma.transaction.count({ where }),
       this.prisma.transaction.findMany({
         where,
-        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -209,11 +183,10 @@ export class TransactionsService {
           amount,
           currency: account.currency,
           description: dto.description ?? null,
-          date,
+          occurredAt: date,
           status,
         },
       });
-      await this.applyBalanceEffect(tx, transaction, 'apply');
       return this.serialize(transaction);
     });
   }
@@ -237,11 +210,7 @@ export class TransactionsService {
         throw new NotFoundException('Movimiento no encontrado.');
       }
 
-      if (
-        dto.type !== undefined &&
-        dto.type !== existing.type &&
-        existing.status === 'CONFIRMED'
-      ) {
+      if (dto.type !== undefined && dto.type !== existing.type && existing.status === 'CONFIRMED') {
         throw new ConflictException('No puedes cambiar el tipo de un movimiento confirmado.');
       }
 
@@ -264,15 +233,13 @@ export class TransactionsService {
         ...(dto.type !== undefined && { type }),
         ...(dto.amount !== undefined && { amount: this.parseAmount(dto.amount) }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.date !== undefined && { date: this.validateDate(dto.date) }),
+        ...(dto.date !== undefined && { occurredAt: this.validateDate(dto.date) }),
         ...(dto.status !== undefined && {
           status: this.toTransactionStatus(dto.status),
         }),
       };
 
-      await this.applyBalanceEffect(tx, existing, 'revert');
       const updated = await tx.transaction.update({ where: { id }, data });
-      await this.applyBalanceEffect(tx, updated, 'apply');
       return this.serialize(updated);
     });
   }
@@ -286,7 +253,6 @@ export class TransactionsService {
         throw new NotFoundException('Movimiento no encontrado.');
       }
 
-      await this.applyBalanceEffect(tx, transaction, 'revert');
       await tx.transaction.update({
         where: { id },
         data: { deletedAt: new Date() },
@@ -317,7 +283,6 @@ export class TransactionsService {
         where: { id },
         data: { deletedAt: null },
       });
-      await this.applyBalanceEffect(tx, restored, 'apply');
       return this.serialize(restored);
     });
   }

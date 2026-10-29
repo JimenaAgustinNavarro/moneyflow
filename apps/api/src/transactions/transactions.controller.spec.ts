@@ -8,6 +8,7 @@ import request from 'supertest';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
+import { PrismaService } from '../prisma/prisma.service';
 import { AllowedTransactionType } from './dto';
 import { TransactionsController } from './transactions.controller';
 import { TransactionsService } from './transactions.service';
@@ -48,6 +49,17 @@ describe('TransactionsController', () => {
       controllers: [TransactionsController],
       providers: [
         { provide: TransactionsService, useValue: transactionsService },
+        {
+          provide: PrismaService,
+          useValue: {
+            user: {
+              findFirst: jest.fn().mockResolvedValue({
+                id: 'user-1',
+                email: 'test@example.com',
+              }),
+            },
+          },
+        },
         JwtStrategy,
         Reflector,
         {

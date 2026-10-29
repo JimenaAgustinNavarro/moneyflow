@@ -17,16 +17,18 @@ describe('TransfersController', () => {
   let jwtService: JwtService;
   let transfersService: {
     create: jest.Mock;
+    findAll: jest.Mock;
+    findOne: jest.Mock;
+    update: jest.Mock;
     remove: jest.Mock;
   };
 
   beforeAll(async () => {
     transfersService = {
-      create: jest.fn().mockResolvedValue({
-        transferId: 'transfer-1',
-        origin: { id: 'origin-leg' },
-        destination: { id: 'destination-leg' },
-      }),
+      create: jest.fn(),
+      findAll: jest.fn(),
+      findOne: jest.fn(),
+      update: jest.fn(),
       remove: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -81,11 +83,20 @@ describe('TransfersController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    transfersService.create.mockResolvedValue({
-      transferId: 'transfer-1',
-      origin: { id: 'origin-leg' },
-      destination: { id: 'destination-leg' },
+    const transfer = {
+      id: 'transfer-1',
+      originAccountId: '550e8400-e29b-41d4-a716-446655440000',
+      destinationAccountId: '550e8400-e29b-41d4-a716-446655440001',
+      amount: '300.00',
+      status: 'CONFIRMED',
+    };
+    transfersService.create.mockResolvedValue(transfer);
+    transfersService.findAll.mockResolvedValue({
+      data: [transfer],
+      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
     });
+    transfersService.findOne.mockResolvedValue(transfer);
+    transfersService.update.mockResolvedValue(transfer);
     transfersService.remove.mockResolvedValue(undefined);
   });
 
@@ -116,9 +127,11 @@ describe('TransfersController', () => {
       .expect(201)
       .expect({
         data: {
-          transferId: 'transfer-1',
-          origin: { id: 'origin-leg' },
-          destination: { id: 'destination-leg' },
+          id: 'transfer-1',
+          originAccountId: validTransfer.originAccountId,
+          destinationAccountId: validTransfer.destinationAccountId,
+          amount: '300.00',
+          status: 'CONFIRMED',
         },
       });
 
@@ -138,7 +151,53 @@ describe('TransfersController', () => {
     expect(transfersService.create).not.toHaveBeenCalled();
   });
 
-  it('DELETE /transfers/:transferId devuelve 204 sin cuerpo', async () => {
+  it('GET /transfers devuelve 200 con { data, meta }', async () => {
+    await request(app.getHttpServer())
+      .get('/transfers?page=1&limit=20')
+      .set('Authorization', await authorizationHeader())
+      .expect(200)
+      .expect({
+        data: [
+          {
+            id: 'transfer-1',
+            originAccountId: validTransfer.originAccountId,
+            destinationAccountId: validTransfer.destinationAccountId,
+            amount: '300.00',
+            status: 'CONFIRMED',
+          },
+        ],
+        meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      });
+    expect(transfersService.findAll).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ page: 1, limit: 20 }),
+    );
+  });
+
+  it('GET /transfers/:id devuelve 200 con { data }', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/transfers/transfer-1')
+      .set('Authorization', await authorizationHeader())
+      .expect(200);
+    expect(response.body.data.id).toBe('transfer-1');
+    expect(transfersService.findOne).toHaveBeenCalledWith('user-1', 'transfer-1');
+  });
+
+  it('PATCH /transfers/:id devuelve 200 con { data }', async () => {
+    const response = await request(app.getHttpServer())
+      .patch('/transfers/transfer-1')
+      .set('Authorization', await authorizationHeader())
+      .send({ amount: '150.00' })
+      .expect(200);
+    expect(response.body.data.id).toBe('transfer-1');
+    expect(transfersService.update).toHaveBeenCalledWith(
+      'user-1',
+      'transfer-1',
+      expect.objectContaining({ amount: '150.00' }),
+    );
+  });
+
+  it('DELETE /transfers/:id devuelve 204 sin cuerpo', async () => {
     const response = await request(app.getHttpServer())
       .delete('/transfers/transfer-1')
       .set('Authorization', await authorizationHeader())

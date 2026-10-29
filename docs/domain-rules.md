@@ -12,7 +12,7 @@ Este documento es la **fuente de verdad del dominio financiero** de MoneyFlow. T
 
 - **Moneda:** Soles peruanos (PEN) en el MVP. La columna `currency` existe en `accounts` y `transactions` para futuras monedas, pero el sistema opera solo con PEN.
 - **Zona horaria:** `America/Lima` (UTC-5) para todos los cálculos temporales (recurrencias, presupuestos, reportes).
-- **Precisión monetaria:** `Decimal(12, 2)`. Nunca `Float`.
+- **Precisión monetaria:** `Decimal(19, 2)`. Nunca `Float`.
 - **Precisión de fecha:** `DateTime` con zona horaria (`Timestamptz`).
 - **IDs:** UUID v4 (`String @id @default(uuid())`).
 - **Normalización de email:** se recorta con `trim` y se convierte a lowercase al registrarse y al iniciar sesión. El email guardado en la base de datos siempre está en lowercase.
@@ -29,12 +29,14 @@ Un contenedor de dinero del usuario. Ejemplos: efectivo, cuenta bancaria, billet
 **Tipos:** `CASH`, `BANK`, `WALLET`, `CREDIT`.
 
 **Campos clave:**
+
 - `userId`: dueño de la cuenta.
 - `name`: nombre visible (ej. "BCP Ahorros").
 - `type`: uno de los tipos definidos.
 - `currency`: ISO 4217 (default `PEN`).
 - `initialBalance`: saldo al crear la cuenta.
-- `balance`: saldo actual persistido.
+- `initialBalanceAt`: fecha desde la que se contabilizan movimientos respecto del saldo inicial.
+- `balance`: saldo actual derivado del ledger; no se persiste.
 - `archived`: booleano (default `false`).
 
 **Regla única:** `(userId, name)` es único. No puede haber dos cuentas con el mismo nombre para el mismo usuario.
@@ -43,22 +45,20 @@ Un contenedor de dinero del usuario. Ejemplos: efectivo, cuenta bancaria, billet
 
 Un registro de dinero que entra o sale de una cuenta.
 
-**Tipos:** `INCOME`, `EXPENSE`, `TRANSFER`.
+**Tipos:** `INCOME`, `EXPENSE`.
 
 **Estados:** `PENDING`, `CONFIRMED`, `CANCELLED`.
 
 **Campos clave:**
+
 - `userId`: dueño del movimiento.
 - `accountId`: cuenta afectada.
-- `categoryId`: categoría (nullable para transferencias).
-- `type`: `INCOME`, `EXPENSE` o `TRANSFER`.
+- `categoryId`: categoría del ingreso o egreso.
+- `type`: `INCOME` o `EXPENSE`.
 - `amount`: monto positivo (siempre `> 0`).
 - `currency`: ISO 4217.
 - `date`: fecha del movimiento.
 - `status`: `PENDING`, `CONFIRMED` o `CANCELLED`.
-- `transferId`: UUID que agrupa las dos patas de una transferencia (nullable).
-- `counterpartAccountId`: cuenta destino en transferencias (nullable).
-- `obligationId`: obligación pagada por este movimiento (nullable).
 - `goalId`: meta de ahorro afectada (nullable).
 
 ### 1.3 Ingreso (`INCOME`)
@@ -77,17 +77,21 @@ Movimiento donde el dinero **sale** de una cuenta.
 
 **Efecto en saldo:** `balance -= amount` (si `status = CONFIRMED`).
 
-### 1.5 Transferencia (`TRANSFER`)
+### 1.5 Transferencia (`transfer`)
 
-Movimiento entre dos cuentas del **mismo usuario**. No es un ingreso ni un egreso.
+Entidad propia con un solo registro que mueve dinero entre dos cuentas del **mismo usuario**. No es un ingreso ni un egreso.
 
 **Regla:** `amount > 0`. Cuenta origen y destino deben ser distintas. Ambas cuentas del mismo `userId`. Misma moneda (en MVP, siempre `PEN`).
 
-**Efecto en saldo:**
-- Cuenta origen: `balance -= amount`.
-- Cuenta destino: `balance += amount`.
+**Estados:** `CONFIRMED` y `CANCELLED` en el MVP. La creación siempre deja el estado `CONFIRMED`.
 
-**No cuenta como ingreso ni egreso en reportes ni presupuestos.** Se excluye por `type = 'TRANSFER'`.
+**Efecto en saldo:**
+
+- Solo si está `CONFIRMED`: cuenta origen `balance -= amount` y cuenta destino `balance += amount`.
+- La cancelación cambia a `CANCELLED`, registra `cancelledAt` y revierte su efecto derivado; el registro se conserva para auditoría.
+- Una transferencia cancelada no se puede reactivar ni editar.
+
+**No cuenta como ingreso ni egreso en reportes ni presupuestos.** Las transferencias se consultan por separado de los movimientos.
 
 ### 1.6 Categoría (`category`)
 
@@ -106,12 +110,14 @@ Clasificación de movimientos.
 Un compromiso de pago futuro. Ejemplo: "pagar la luz antes del 15 de cada mes".
 
 **Origen:**
+
 - Recurrente (`recurrenceId != null`).
 - Puntual (`recurrenceId = null`).
 
 **Estados:** `PENDING`, `PAID`, `OVERDUE`, `CANCELLED`.
 
 **Campos clave:**
+
 - `amount`: monto a pagar.
 - `dueDate`: fecha de vencimiento.
 - `paidAt`: fecha de pago (nullable).
@@ -127,6 +133,7 @@ Un límite de gasto por categoría en un período.
 **Períodos:** `WEEKLY` (semanal), `MONTHLY` (mensual).
 
 **Campos clave:**
+
 - `amount`: límite.
 - `startDate`: inicio del presupuesto.
 - `endDate`: fin (nullable = indefinido).
@@ -142,6 +149,7 @@ Un objetivo de ahorro con monto y fecha opcional.
 **Estados:** `ACTIVE`, `COMPLETED`, `CANCELLED`.
 
 **Campos clave:**
+
 - `targetAmount`: monto objetivo.
 - `currentAmount`: monto acumulado (persistido).
 - `targetDate`: fecha límite (nullable).
@@ -162,6 +170,7 @@ Clasificación transversal de movimientos.
 ## 2. Cálculo de saldo de cuenta
 
 ### 2.1 Fórmula exacta
+
 saldo = saldo_inicial
 
 SUM(ingresos confirmados)
@@ -174,7 +183,7 @@ SUM(transferencias salientes confirmadas)
 
 text
 
-**Solo se incluyen movimientos con `status = 'CONFIRMED'`.**
+**Solo se incluyen movimientos y transferencias con `status = 'CONFIRMED'`, no eliminados/cancelados, y posteriores o iguales a `initialBalanceAt`.**
 
 **Los movimientos `PENDING` y `CANCELLED` NO afectan el saldo.**
 
@@ -190,17 +199,15 @@ text
 
 **Efecto neto:** el saldo se reduce en el monto de la obligación pagada, en la fecha de pago.
 
-### 2.4 Persistencia del saldo
+### 2.4 Derivación del saldo
 
-**Regla:** `accounts.balance` se persiste en la BD.
+**Regla:** `accounts.balance` no se persiste en la BD. Se calcula al consultar la cuenta desde `initialBalance` y los registros confirmados del ledger desde `initialBalanceAt`.
 
-**Actualización:** cuando se crea, edita o borra un movimiento `CONFIRMED`, el saldo de la cuenta se actualiza en la misma transacción de base de datos.
+**Actualización:** crear, editar, eliminar o restaurar un movimiento o transferencia actualiza sus registros dentro de una transacción; las siguientes lecturas derivan el saldo actualizado.
 
-**Recálculo:** existe un endpoint `POST /accounts/:id/recalculate` que recalcula el saldo desde cero sumando todos los movimientos `CONFIRMED`. Se usa para auditar o reparar inconsistencias.
+**Recálculo:** existe un endpoint `POST /accounts/:id/recalculate` que vuelve a calcular el saldo desde el ledger. Se usa para auditar el cálculo.
 
-El recálculo de saldo debe ejecutarse de forma transaccional y atómica (dentro de `$transaction`). Si algo falla, la operación se revierte y el saldo en BD queda consistente.
-
-**Test obligatorio:** tras N operaciones aleatorias, `balance` persistido == `SUM(movimientos confirmados)`.
+El resultado es `initialBalance + ingresos confirmados - egresos confirmados + transferencias entrantes confirmadas - transferencias salientes confirmadas`.
 
 ---
 
@@ -209,23 +216,21 @@ El recálculo de saldo debe ejecutarse de forma transaccional y atómica (dentro
 ### 3.1 Creación
 
 **Regla:** al crear un movimiento, se valida:
+
 - `amount > 0`.
 - `accountId` pertenece al `userId`.
 - `categoryId` (si viene) pertenece al `userId` o es del sistema.
-- `type` es uno de `INCOME`, `EXPENSE`, `TRANSFER`.
-- Si `type = TRANSFER`, existe `counterpartAccountId` y es distinta de `accountId`.
+- `type` es uno de `INCOME`, `EXPENSE`.
 - `date` no es futura (en el MVP).
 
-**Efecto:** se actualiza `accounts.balance` en la misma transacción.
+**Efecto:** el balance de la cuenta se deriva del ledger.
 
 ### 3.2 Edición
 
 **Regla:** se puede editar un movimiento pasado.
 
 **Efectos:**
-- Si cambia `accountId`, se recalcula el saldo de la cuenta vieja y la nueva.
-- Si cambia `amount`, se recalcula el saldo de la cuenta.
-- Si cambia `status`, se recalcula el saldo (si pasa de `PENDING` a `CONFIRMED`, suma; si pasa de `CONFIRMED` a `CANCELLED`, resta).
+
 - **Toda la operación ocurre en una transacción de base de datos.**
 
 ### 3.3 Borrado
@@ -233,15 +238,17 @@ El recálculo de saldo debe ejecutarse de forma transaccional y atómica (dentro
 **Regla:** soft delete en el MVP. Se marca `deletedAt` y se conserva el movimiento para auditoría e historial financiero.
 
 **Efectos:**
-- Se recalcula el saldo de la cuenta afectada.
+
+- El saldo derivado excluye el movimiento eliminado.
 - Si el movimiento tiene `obligationId`, la obligación pasa de `PAID` a `PENDING` y `paidAt` se limpia.
-- Si el movimiento es una transferencia, se borran **ambas patas** (por `transferId`).
+- Las transferencias se cancelan desde su propio endpoint y no se eliminan con el endpoint de movimientos.
 
 ### 3.4 Borrado de cuenta con movimientos
 
-**Regla:** no se puede borrar una cuenta con movimientos `CONFIRMED`.
+**Regla:** no se puede borrar una cuenta con movimientos o transferencias `CONFIRMED`.
 
 **Alternativa:** archivar la cuenta (`archived = true`). Una cuenta archivada:
+
 - No aparece en la lista de cuentas activas.
 - No se puede usar para nuevos movimientos.
 - Conserva su historial y saldo.
@@ -255,11 +262,7 @@ El recálculo de saldo debe ejecutarse de forma transaccional y atómica (dentro
 
 ### 4.1 Modelo
 
-Una transferencia se modela como **dos movimientos enlazados** por un `transferId` compartido:
-- Pata origen: `type = TRANSFER`, `accountId = cuenta_origen`, `counterpartAccountId = cuenta_destino`, `amount` positivo y `direction = 'OUT'`.
-- Pata destino: `type = TRANSFER`, `accountId = cuenta_destino`, `counterpartAccountId = cuenta_origen`, `amount` positivo y `direction = 'IN'`.
-
-**Ambas patas tienen el mismo `transferId`, `amount`, `date` y `status`.**
+Una transferencia es una fila del modelo `Transfer`, con `originAccountId`, `destinationAccountId`, `amount`, `occurredAt`, `status` y `cancelledAt`.
 
 ### 4.2 Reglas
 
@@ -267,6 +270,11 @@ Una transferencia se modela como **dos movimientos enlazados** por un `transferI
 - Ambas cuentas del **mismo usuario**.
 - Misma moneda (en MVP, siempre `PEN`).
 - `amount > 0`.
+- La creación siempre produce `CONFIRMED`.
+- PATCH solo permite editar transferencias `CONFIRMED`.
+- DELETE cancela (estado `CANCELLED` y `cancelledAt`); solo se permite la transición `CONFIRMED → CANCELLED`.
+- GET lista transferencias `CONFIRMED` de forma predeterminada; `includeCancelled=true` permite auditoría.
+- No se puede archivar/eliminar lógicamente una cuenta mientras esté vinculada a una transferencia `CONFIRMED`.
 
 ### 4.3 Efecto en reportes
 
@@ -274,14 +282,15 @@ Una transferencia se modela como **dos movimientos enlazados** por un `transferI
 
 **Razón:** el dinero no entra ni sale del patrimonio del usuario, solo se mueve entre cuentas propias.
 
-**En reportes:** se excluyen con `type != 'TRANSFER'`.
+**En reportes:** se excluyen del conjunto de `Transaction`.
 
-**En presupuestos:** se excluyen con `type != 'TRANSFER'`.
+**En presupuestos:** se excluyen del conjunto de `Transaction`.
 
-### 4.4 Edición y borrado
+### 4.4 Edición y cancelación
 
-- **Editar:** se editarán ambas patas en una transacción en una tarjeta futura (FIX-TRANSFER-03); no forma parte de MF-20.
-- **Borrar:** se borran ambas patas por `transferId`.
+- **Editar:** PATCH actualiza una transferencia `CONFIRMED` dentro de una transacción.
+- **Cancelar:** DELETE conserva el registro, lo marca `CANCELLED` y establece `cancelledAt`.
+- Una transferencia `CANCELLED` no se puede editar ni reactivar.
 
 ---
 
@@ -308,6 +317,7 @@ Una recurrencia (`recurrence`) define un patrón de pagos:
 ### 5.3 Pago de obligación
 
 **Regla:** al marcar una obligación como pagada:
+
 - Se elige cuenta de pago, categoría y fecha.
 - Se crea un movimiento `EXPENSE` con `status = CONFIRMED`, `obligationId = obligación.id`.
 - La obligación pasa a `PAID` con `paidAt` seteado. El movimiento queda vinculado mediante `Transaction.obligationId`.
@@ -338,6 +348,7 @@ Una recurrencia (`recurrence`) define un patrón de pagos:
 **Origen:** `userId = null`, `isSystem = true`.
 
 **Características:**
+
 - No editables.
 - No borrables.
 - Visibles para todos los usuarios.
@@ -348,6 +359,7 @@ Una recurrencia (`recurrence`) define un patrón de pagos:
 **Origen:** `userId != null`, `isSystem = false`.
 
 **Características:**
+
 - Editables (nombre, ícono, color).
 - Borrables **si no tienen movimientos asociados**.
 - Si tienen movimientos, hay que reasignarlos primero.
@@ -355,6 +367,7 @@ Una recurrencia (`recurrence`) define un patrón de pagos:
 ### 6.3 Jerarquía
 
 **Regla:** máximo 2 niveles.
+
 - Nivel 1: categoría padre (`parentId = null`).
 - Nivel 2: subcategoría (`parentId != null`).
 
@@ -378,31 +391,32 @@ Una recurrencia (`recurrence`) define un patrón de pagos:
 
 ### 12.1 Tablas con soft delete
 
-| Tabla | Razón |
-|---|---|
-| `users` | Datos personales del usuario |
-| `accounts` | Datos financieros críticos |
-| `categories` | Referenciadas por movimientos históricos |
-| `transactions` | Datos financieros críticos |
-| `recurrences` | Historial de obligaciones |
-| `obligations` | Historial de pagos |
-| `budgets` | Historial de presupuestos |
-| `savings_goals` | Historial de ahorros |
-| `goal_contributions` | Historial de aportes |
-| `tags` | Referenciadas por movimientos históricos |
+| Tabla                | Razón                                    |
+| -------------------- | ---------------------------------------- |
+| `users`              | Datos personales del usuario             |
+| `accounts`           | Datos financieros críticos               |
+| `categories`         | Referenciadas por movimientos históricos |
+| `transactions`       | Datos financieros críticos               |
+| `recurrences`        | Historial de obligaciones                |
+| `obligations`        | Historial de pagos                       |
+| `budgets`            | Historial de presupuestos                |
+| `savings_goals`      | Historial de ahorros                     |
+| `goal_contributions` | Historial de aportes                     |
+| `tags`               | Referenciadas por movimientos históricos |
 
 ### 12.2 Tablas con hard delete
 
-| Tabla | Razón |
-|---|---|
-| `refresh_tokens` | Se revocan (`revokedAt`), no se borran |
-| `notifications` | Datos efímeros |
-| `transaction_tags` | Pivote (se borra al desetiquetar) |
-| `budget_categories` | Pivote (se borra al desasociar) |
+| Tabla               | Razón                                  |
+| ------------------- | -------------------------------------- |
+| `refresh_tokens`    | Se revocan (`revokedAt`), no se borran |
+| `notifications`     | Datos efímeros                         |
+| `transaction_tags`  | Pivote (se borra al desetiquetar)      |
+| `budget_categories` | Pivote (se borra al desasociar)        |
 
 ### 12.3 Regla general
 
 Toda entidad con soft delete tiene:
+
 - Columna `deletedAt DateTime? @db.Timestamptz(6)`.
 - Índices únicos parciales (`WHERE deleted_at IS NULL`).
 - Filtro `deletedAt: null` en todas las queries de lectura.
@@ -433,6 +447,7 @@ await prisma.account.update({
 ```
 
 Consecuencias:
+
 - El registro sigue en la BD.
 - Se filtra en las queries de lectura.
 - Se puede restaurar.
@@ -443,6 +458,7 @@ Consecuencias:
 Endpoint: `POST /:entidad/:id/restore`.
 
 Efecto:
+
 - `deletedAt = null`.
 - Se valida que no haya conflicto de unicidad.
 - Si hay conflicto → error 409.
@@ -458,6 +474,7 @@ Ejemplo: borrar una cuenta NO borra sus movimientos. Los movimientos quedan con 
 Regla: no se puede borrar (soft) una entidad con dependencias activas.
 
 Ejemplo:
+
 - Borrar una cuenta con movimientos CONFIRMED → error 409.
 - Alternativa: archivar la cuenta (`archived = true`).
 
@@ -478,10 +495,12 @@ Efecto: devuelve también las entidades borradas. Solo accesible para el dueño 
 Un presupuesto aplica a **una o varias categorías** durante un **período**.
 
 **Períodos:**
+
 - `WEEKLY`: lunes 00:00 a domingo 23:59:59 (`America/Lima`).
 - `MONTHLY`: día 1 00:00 al último día del mes 23:59:59 (`America/Lima`).
 
 ### 7.2 Gasto computable
+
 gasto_computable = SUM(egresos confirmados
 con categoría en el presupuesto,
 en el período)
@@ -489,12 +508,14 @@ en el período)
 text
 
 **Excluye:**
-- Transferencias (`type = 'TRANSFER'`).
+
+- Transferencias (entidad `Transfer`).
 - Movimientos sin categoría.
 - Movimientos `PENDING` o `CANCELLED`.
 - Movimientos fuera del período.
 
 ### 7.3 Uso del presupuesto
+
 porcentaje_utilizado = (gasto_computable / budget.amount) * 100
 saldo_restante = budget.amount - gasto_computable
 
@@ -509,6 +530,7 @@ text
 ### 7.5 Copiar presupuestos entre períodos
 
 **Regla:** se puede copiar un presupuesto de un período a otro. Se copian:
+
 - `amount`.
 - `alertThreshold`.
 - Categorías asociadas.
@@ -522,12 +544,14 @@ text
 ### 8.1 Definición
 
 Una meta tiene:
+
 - `targetAmount`: monto objetivo.
 - `currentAmount`: monto acumulado (persistido).
 - `targetDate`: fecha límite (nullable).
 - `accountId`: cuenta asociada (nullable).
 
 ### 8.2 Progreso
+
 progreso = SUM(aportes) - SUM(retiros)
 
 text
@@ -536,6 +560,7 @@ text
 **Retiros:** `goal_contributions` con `type = 'WITHDRAWAL'`.
 
 ### 8.3 Aporte periódico necesario
+
 aporte_periodico = (targetAmount - progreso_actual) / meses_restantes
 
 text
@@ -543,6 +568,7 @@ text
 **Si no hay `targetDate`:** no se calcula.
 
 ### 8.4 Estimación de fecha de finalización
+
 fecha_estimada = now() + (targetAmount - progreso_actual) / aporte_promedio
 
 text
@@ -591,6 +617,7 @@ text
 ### 9.4 Aplicación
 
 **Todos los cálculos que dependan de "período" usan estas reglas:**
+
 - Presupuestos.
 - Reportes.
 - Proyecciones.
@@ -603,11 +630,11 @@ text
 ## 10. Reglas no negociables (resumen ejecutivo)
 
 1. **Los cálculos financieros deben ser correctos.** Sin excepciones.
-2. **El saldo persistido siempre coincide con la suma de movimientos confirmados.** Se verifica con un endpoint de recálculo.
+2. **El balance entregado por la API se deriva de `initialBalance` y del ledger confirmado desde `initialBalanceAt`; no se persiste.**
 3. **Las transferencias no cuentan como ingresos ni egresos.** En reportes ni presupuestos.
 4. **Las obligaciones pendientes no afectan el saldo.** Solo al pagarse.
 5. **Las recurrencias no generan duplicados.** Constraint único `(recurrenceId, periodStart)`.
-6. **El frontend no es la fuente de verdad del saldo.** El backend lo calcula y lo persiste.
+6. **El frontend no es la fuente de verdad del saldo.** El backend lo calcula desde el ledger.
 7. **Todos los datos están aislados por `userId`.** Nunca se confía en el `userId` del body.
 8. **Los montos son `Decimal(12, 2)`.** Nunca `Float`.
 9. **Las fechas son `Timestamptz`.** Zona horaria `America/Lima` para cálculos temporales.
@@ -619,4 +646,4 @@ text
 
 **(Esta sección debe quedar vacía antes de cerrar el Sprint 1.)**
 
-*Sin preguntas abiertas por el momento.*
+_Sin preguntas abiertas por el momento._

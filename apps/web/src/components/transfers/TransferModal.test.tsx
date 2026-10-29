@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TransferModal } from './TransferModal';
 import { ApiError } from '@/lib/api-client';
 import type { Account } from '@/types/account';
+import type { Transfer } from '@/types/transfer';
 
 const accounts: Account[] = [
   {
@@ -38,10 +39,33 @@ async function selectOption(trigger: HTMLElement, name: string) {
   fireEvent.click(await screen.findByRole('option', { name }));
 }
 
-function renderModal(onSubmit = vi.fn().mockResolvedValue(undefined)) {
+const editingTransfer: Transfer = {
+  id: 'transfer-1',
+  originAccountId: 'account-1',
+  destinationAccountId: 'account-2',
+  amount: '25.50',
+  currency: 'PEN',
+  description: 'Ahorro mensual',
+  occurredAt: '2026-10-15T18:00:00.000Z',
+  status: 'CONFIRMED',
+  cancelledAt: null,
+  createdAt: '2026-10-15T18:00:00.000Z',
+  updatedAt: '2026-10-15T18:00:00.000Z',
+};
+
+function renderModal(
+  onSubmit = vi.fn().mockResolvedValue(undefined),
+  editing: Transfer | null = null,
+) {
   const onClose = vi.fn();
   const result = render(
-    <TransferModal open onClose={onClose} onSubmit={onSubmit} accounts={accounts} />,
+    <TransferModal
+      open
+      onClose={onClose}
+      onSubmit={onSubmit}
+      accounts={accounts}
+      editing={editing}
+    />,
   );
 
   return { ...result, onClose, onSubmit };
@@ -65,6 +89,23 @@ describe('TransferModal', () => {
     renderModal();
 
     expect(screen.getByLabelText('Fecha')).toHaveValue('2026-10-14');
+  });
+
+  it('carga los campos de la transferencia v2 al editar', () => {
+    render(
+      <TransferModal
+        open
+        onClose={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+        accounts={accounts}
+        editing={editingTransfer}
+      />,
+    );
+
+    expect(screen.getByLabelText('Monto')).toHaveValue('25.50');
+    expect(screen.getByLabelText('Fecha')).toHaveValue('2026-10-15');
+    expect(screen.getByLabelText('Descripción (opcional)')).toHaveValue('Ahorro mensual');
+    expect(screen.getByRole('heading', { name: 'Editar transferencia' })).toBeInTheDocument();
   });
 
   it('muestra los campos y valida cuentas requeridas y monto', async () => {

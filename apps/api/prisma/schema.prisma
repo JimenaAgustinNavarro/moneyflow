@@ -10,8 +10,8 @@ datasource db {
 enum AccountType {
   CASH
   BANK
+  SAVINGS
   WALLET
-  CREDIT
 }
 
 enum CategoryType {
@@ -22,10 +22,15 @@ enum CategoryType {
 enum TransactionType {
   INCOME
   EXPENSE
-  TRANSFER
 }
 
 enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum TransferStatus {
   PENDING
   CONFIRMED
   CANCELLED
@@ -39,6 +44,7 @@ enum RecurrenceFrequency {
 
 enum ObligationStatus {
   PENDING
+  PARTIALLY_PAID
   PAID
   OVERDUE
   CANCELLED
@@ -70,16 +76,18 @@ enum NotificationType {
 
 model User {
   id            String         @id @default(uuid())
-  email         String
+  email         String         @unique
   passwordHash  String         @map("password_hash")
   name          String
   timezone      String         @default("America/Lima")
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt     DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
   accounts      Account[]
   categories    Category[]
   transactions  Transaction[]
+  transfers     Transfer[]
   recurrences   Recurrence[]
   obligations   Obligation[]
   budgets       Budget[]
@@ -87,47 +95,49 @@ model User {
   tags          Tag[]
   refreshTokens RefreshToken[]
   notifications Notification[]
+  auditLogs     AuditLog[]
 
-  @@index([email])
   @@index([deletedAt])
   @@map("users")
 }
 
 model Account {
-  id             String        @id @default(uuid())
-  userId         String        @map("user_id")
-  name           String
-  type           AccountType
-  currency       String        @default("PEN")
-  initialBalance Decimal       @default(0) @map("initial_balance") @db.Decimal(12, 2)
-  balance        Decimal       @default(0) @db.Decimal(12, 2)
-  archived       Boolean       @default(false)
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz(6)
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions   Transaction[] @relation("TransactionAccount")
-  counterpartFor Transaction[] @relation("CounterpartAccount")
-  savingsGoals   SavingsGoal[]
-  recurrences    Recurrence[]
+  id                String      @id @default(uuid())
+  userId            String      @map("user_id")
+  name              String
+  type              AccountType
+  currency          String      @default("PEN") @db.VarChar(3)
+  initialBalance    Decimal     @default(0) @map("initial_balance") @db.Decimal(19, 2)
+  initialBalanceAt  DateTime    @default(now()) @map("initial_balance_at") @db.Timestamptz(6)
+  archived          Boolean     @default(false)
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?   @map("deleted_at") @db.Timestamptz(6)
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[] @relation("TransactionAccount")
+  transfersOut      Transfer[]    @relation("TransferOrigin")
+  transfersIn       Transfer[]    @relation("TransferDestination")
+  savingsGoals      SavingsGoal[]
+  recurrences       Recurrence[]
 
   @@index([userId, name])
-  @@index([userId])
-  @@index([deletedAt])
+  @@index([userId, deletedAt])
   @@map("accounts")
 }
 
 model Category {
-  id               String           @id @default(uuid())
-  userId           String?          @map("user_id")
+  id               String       @id @default(uuid())
+  userId           String?      @map("user_id")
   name             String
   type             CategoryType
-  parentId         String?          @map("parent_id")
+  parentId         String?      @map("parent_id")
   icon             String?
   color            String?
-  isSystem         Boolean          @default(false) @map("is_system")
-  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  deletedAt        DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  isSystem         Boolean      @default(false) @map("is_system")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt        DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
   user             User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent           Category?        @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children         Category[]       @relation("CategoryHierarchy")
@@ -136,52 +146,71 @@ model Category {
   budgetCategories BudgetCategory[]
 
   @@index([userId, name, type])
-  @@index([userId])
   @@index([parentId])
   @@index([deletedAt])
   @@map("categories")
 }
 
 model Transaction {
-  id                   String             @id @default(uuid())
-  userId               String             @map("user_id")
-  accountId            String             @map("account_id")
-  categoryId           String?            @map("category_id")
-  type                 TransactionType
-  amount               Decimal            @db.Decimal(12, 2)
-  currency             String             @default("PEN")
-  description          String?
-  date                 DateTime           @db.Timestamptz(6)
-  status               TransactionStatus  @default(CONFIRMED)
-  direction            String?            @map("direction") @db.VarChar(10)
-  transferId           String?            @map("transfer_id")
-  counterpartAccountId String?            @map("counterpart_account_id")
-  obligationId         String?            @map("obligation_id")
-  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt            DateTime?          @map("deleted_at") @db.Timestamptz(6)
-  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account              Account            @relation("TransactionAccount", fields: [accountId], references: [id], onDelete: Restrict)
-  category             Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  counterpartAccount   Account?           @relation("CounterpartAccount", fields: [counterpartAccountId], references: [id], onDelete: SetNull)
-  obligation           Obligation?        @relation(fields: [obligationId], references: [id], onDelete: SetNull)
-  contributions        GoalContribution[]
-  tags                 TransactionTag[]
+  id           String            @id @default(uuid())
+  userId       String            @map("user_id")
+  accountId    String            @map("account_id")
+  categoryId   String?           @map("category_id")
+  type         TransactionType
+  amount       Decimal           @db.Decimal(19, 2)
+  currency     String            @default("PEN") @db.VarChar(3)
+  description  String?
+  occurredAt   DateTime          @map("date") @db.Timestamptz(6)
+  status       TransactionStatus @default(CONFIRMED)
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?         @map("deleted_at") @db.Timestamptz(6)
 
-  @@index([userId, date])
-  @@index([accountId, date])
-  @@index([categoryId, date])
-  @@index([transferId])
-  @@index([obligationId])
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account            Account             @relation("TransactionAccount", fields: [accountId], references: [id], onDelete: Restrict)
+  category           Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  obligationPayments ObligationPayment[]
+  goalContributions  GoalContribution[]
+  tags               TransactionTag[]
+
+  @@index([userId, occurredAt])
+  @@index([accountId, occurredAt])
+  @@index([categoryId, occurredAt])
+  @@index([status, occurredAt])
   @@index([deletedAt])
   @@map("transactions")
+}
+
+model Transfer {
+  id                  String         @id @default(uuid())
+  userId              String         @map("user_id")
+  originAccountId     String         @map("origin_account_id")
+  destinationAccountId String        @map("destination_account_id")
+  amount              Decimal        @db.Decimal(19, 2)
+  currency            String         @default("PEN") @db.VarChar(3)
+  description         String?
+  occurredAt          DateTime       @map("occurred_at") @db.Timestamptz(6)
+  status              TransferStatus @default(CONFIRMED)
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  cancelledAt         DateTime?      @map("cancelled_at") @db.Timestamptz(6)
+
+  originAccount       Account @relation("TransferOrigin", fields: [originAccountId], references: [id], onDelete: Restrict)
+  destinationAccount  Account @relation("TransferDestination", fields: [destinationAccountId], references: [id], onDelete: Restrict)
+  user                User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, occurredAt])
+  @@index([originAccountId, occurredAt])
+  @@index([destinationAccountId, occurredAt])
+  @@index([status, occurredAt])
+  @@map("transfers")
 }
 
 model Recurrence {
   id          String              @id @default(uuid())
   userId      String              @map("user_id")
   name        String
-  amount      Decimal             @db.Decimal(12, 2)
+  amount      Decimal             @db.Decimal(19, 2)
   type        TransactionType
   categoryId  String?             @map("category_id")
   accountId   String?             @map("account_id")
@@ -193,13 +222,13 @@ model Recurrence {
   createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt   DateTime?           @map("deleted_at") @db.Timestamptz(6)
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category    Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  account     Account?            @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  account     Account?    @relation(fields: [accountId], references: [id], onDelete: SetNull)
   obligations Obligation[]
 
-  @@index([userId])
-  @@index([active])
+  @@index([userId, active])
   @@index([deletedAt])
   @@map("recurrences")
 }
@@ -209,43 +238,59 @@ model Obligation {
   userId       String           @map("user_id")
   recurrenceId String?          @map("recurrence_id")
   name         String
-  amount       Decimal          @db.Decimal(12, 2)
+  amount       Decimal          @db.Decimal(19, 2)
   dueDate      DateTime         @map("due_date") @db.Timestamptz(6)
   status       ObligationStatus @default(PENDING)
-  paidAt       DateTime?        @map("paid_at") @db.Timestamptz(6)
-  periodStart  DateTime?        @map("period_start") @db.Timestamptz(6)
+  periodStart  DateTime?        @map("period_start") @db.Date
+  periodEnd    DateTime?        @map("period_end") @db.Date
   createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?        @map("deleted_at") @db.Timestamptz(6)
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recurrence   Recurrence?      @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
-  transactions Transaction[]
 
-  @@index([recurrenceId, periodStart])
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recurrence  Recurrence?         @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  payments    ObligationPayment[]
+
+  @@unique([recurrenceId, periodStart])
   @@index([userId, dueDate])
-  @@index([status])
+  @@index([userId, status, dueDate])
   @@index([deletedAt])
   @@map("obligations")
 }
 
+model ObligationPayment {
+  id            String   @id @default(uuid())
+  obligationId  String   @map("obligation_id")
+  transactionId String   @map("transaction_id")
+  amount        Decimal  @db.Decimal(19, 2)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  obligation  Obligation  @relation(fields: [obligationId], references: [id], onDelete: Restrict)
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+
+  @@unique([transactionId])
+  @@index([obligationId])
+  @@map("obligation_payments")
+}
+
 model Budget {
-  id             String           @id @default(uuid())
-  userId         String           @map("user_id")
+  id             String      @id @default(uuid())
+  userId         String      @map("user_id")
   name           String
   period         BudgetPeriod
-  amount         Decimal          @db.Decimal(12, 2)
-  startDate      DateTime         @map("start_date") @db.Timestamptz(6)
-  endDate        DateTime?        @map("end_date") @db.Timestamptz(6)
-  alertThreshold Int              @default(80) @map("alert_threshold")
-  active         Boolean          @default(true)
-  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?        @map("deleted_at") @db.Timestamptz(6)
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categories     BudgetCategory[]
+  amount         Decimal     @db.Decimal(19, 2)
+  startDate      DateTime    @map("start_date") @db.Date
+  endDate        DateTime?   @map("end_date") @db.Date
+  alertThreshold Int         @default(80) @map("alert_threshold")
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz(6)
 
-  @@index([userId])
-  @@index([active])
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories BudgetCategory[]
+
+  @@index([userId, active])
   @@index([deletedAt])
   @@map("budgets")
 }
@@ -258,29 +303,27 @@ model BudgetCategory {
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([budgetId, categoryId])
-  @@index([budgetId])
   @@index([categoryId])
   @@map("budget_categories")
 }
 
 model SavingsGoal {
-  id            String             @id @default(uuid())
-  userId        String             @map("user_id")
-  name          String
-  targetAmount  Decimal            @map("target_amount") @db.Decimal(12, 2)
-  currentAmount Decimal            @default(0) @map("current_amount") @db.Decimal(12, 2)
-  targetDate    DateTime?          @map("target_date") @db.Timestamptz(6)
-  accountId     String?            @map("account_id")
-  status        GoalStatus         @default(ACTIVE)
-  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt     DateTime?          @map("deleted_at") @db.Timestamptz(6)
+  id           String     @id @default(uuid())
+  userId       String     @map("user_id")
+  name         String
+  targetAmount Decimal    @map("target_amount") @db.Decimal(19, 2)
+  targetDate   DateTime?  @map("target_date") @db.Date
+  accountId    String?    @map("account_id")
+  status       GoalStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
   user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   account       Account?           @relation(fields: [accountId], references: [id], onDelete: SetNull)
   contributions GoalContribution[]
 
-  @@index([userId])
-  @@index([status])
+  @@index([userId, status])
   @@index([deletedAt])
   @@map("savings_goals")
 }
@@ -289,32 +332,33 @@ model GoalContribution {
   id            String           @id @default(uuid())
   goalId        String           @map("goal_id")
   transactionId String?          @map("transaction_id")
-  amount        Decimal          @db.Decimal(12, 2)
+  amount        Decimal          @db.Decimal(19, 2)
   type          ContributionType
-  date          DateTime         @db.Timestamptz(6)
+  occurredAt    DateTime         @map("date") @db.Timestamptz(6)
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   deletedAt     DateTime?        @map("deleted_at") @db.Timestamptz(6)
-  goal          SavingsGoal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  transaction   Transaction?     @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
-  @@index([goalId])
+  goal        SavingsGoal  @relation(fields: [goalId], references: [id], onDelete: Restrict)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([goalId, occurredAt])
   @@index([transactionId])
   @@index([deletedAt])
   @@map("goal_contributions")
 }
 
 model Tag {
-  id           String           @id @default(uuid())
-  userId       String           @map("user_id")
-  name         String
-  color        String?
-  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  deletedAt    DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  name      String
+  color     String?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
   user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions TransactionTag[]
 
-  @@index([userId, name])
-  @@index([userId])
+  @@unique([userId, name])
   @@index([deletedAt])
   @@map("tags")
 }
@@ -333,7 +377,7 @@ model TransactionTag {
 model RefreshToken {
   id        String    @id @default(uuid())
   userId    String    @map("user_id")
-  tokenHash String    @map("token_hash")
+  tokenHash String    @unique @map("token_hash")
   expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
   revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -341,8 +385,7 @@ model RefreshToken {
   ip        String?
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([tokenHash])
+  @@index([userId, expiresAt])
   @@map("refresh_tokens")
 }
 
@@ -356,6 +399,23 @@ model Notification {
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, readAt])
+  @@index([userId, readAt, createdAt])
   @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  action     String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
 }

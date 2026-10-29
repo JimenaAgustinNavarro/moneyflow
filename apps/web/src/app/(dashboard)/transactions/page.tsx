@@ -3,21 +3,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 
+import { TransactionFilters } from '@/components/transactions/TransactionFilters';
 import { TransactionFormModal } from '@/components/transactions/TransactionFormModal';
 import { TransactionList } from '@/components/transactions/TransactionList';
-import { TransactionFilters } from '@/components/transactions/TransactionFilters';
+import { TransferList } from '@/components/transfers/TransferList';
 import { TransferModal } from '@/components/transfers/TransferModal';
 import { Button } from '@/components/ui/button';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useCategories } from '@/hooks/useCategories';
 import {
   useCreateTransaction,
   useDeleteTransaction,
   useTransactions,
   useUpdateTransaction,
 } from '@/hooks/useTransactions';
-import { useCategories } from '@/hooks/useCategories';
-import { useCreateTransfer, useDeleteTransfer, useUpdateTransfer } from '@/hooks/useTransfers';
+import {
+  useCreateTransfer,
+  useDeleteTransfer,
+  useTransfers,
+  useUpdateTransfer,
+} from '@/hooks/useTransfers';
 import { ApiError } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/format-currency';
 import type {
@@ -26,23 +32,25 @@ import type {
   TransactionFilters as Filters,
   UpdateTransactionInput,
 } from '@/types/transaction';
-import type { CreateTransferInput } from '@/types/transfer';
+import type { CreateTransferInput, Transfer, UpdateTransferInput } from '@/types/transfer';
 
 const PAGE_SIZE = 20;
 
 export default function TransactionsPage() {
   const [filterValues, setFilterValues] = useState<Omit<Filters, 'page' | 'limit'>>({});
   const [page, setPage] = useState(1);
+  const [transferPage, setTransferPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
-  const [editingTransfer, setEditingTransfer] = useState<Transaction | null>(null);
+  const [editingTransfer, setEditingTransfer] = useState<Transfer | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Transaction | null>(null);
-  const [pendingDeleteTransfer, setPendingDeleteTransfer] = useState<Transaction | null>(null);
+  const [pendingCancelTransfer, setPendingCancelTransfer] = useState<Transfer | null>(null);
   const [notice, setNotice] = useState<{ message: string; isError: boolean } | null>(null);
 
   useEffect(() => {
     setPage(1);
+    setTransferPage(1);
   }, [
     filterValues.accountId,
     filterValues.categoryId,
@@ -56,6 +64,13 @@ export default function TransactionsPage() {
   const accountsQuery = useAccounts(false);
   const categoriesQuery = useCategories();
   const transactionsQuery = useTransactions(filters);
+  const transfersQuery = useTransfers({
+    accountId: filterValues.accountId,
+    from: filterValues.from,
+    to: filterValues.to,
+    page: transferPage,
+    limit: PAGE_SIZE,
+  });
   const createTransaction = useCreateTransaction();
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();
@@ -86,17 +101,15 @@ export default function TransactionsPage() {
     setNotice({ message: 'Movimiento creado.', isError: false });
   };
 
-  const handleTransferSubmit = async (input: CreateTransferInput | { originAccountId?: string; destinationAccountId?: string; amount?: string; description?: string | null; date?: string }) => {
-    if (editingTransfer && editingTransfer.transferId) {
-      await updateTransfer.mutateAsync({
-        transferId: editingTransfer.transferId,
-        input,
-      });
+  const handleTransferSubmit = async (input: CreateTransferInput) => {
+    if (editingTransfer) {
+      const updateInput: UpdateTransferInput = input;
+      await updateTransfer.mutateAsync({ id: editingTransfer.id, input: updateInput });
       setNotice({ message: 'Transferencia actualizada.', isError: false });
       return;
     }
 
-    await createTransfer.mutateAsync(input as CreateTransferInput);
+    await createTransfer.mutateAsync(input);
     setNotice({ message: 'Transferencia creada.', isError: false });
   };
 
@@ -119,73 +132,31 @@ export default function TransactionsPage() {
     }
   };
 
-  const handleDeleteTransfer = (transaction: Transaction) => {
-    if (!transaction.transferId) {
-      setNotice({
-        message: 'No se puede eliminar la transferencia porque falta su identificador.',
-        isError: true,
-      });
-      return;
-    }
-    setPendingDeleteTransfer(transaction);
-  };
-
-  const confirmDeleteTransfer = async () => {
-    const transferId = pendingDeleteTransfer?.transferId;
-    if (!transferId) {
-      setNotice({
-        message: 'No se puede eliminar la transferencia porque falta su identificador.',
-        isError: true,
-      });
-      setPendingDeleteTransfer(null);
-      return;
-    }
+  const confirmCancelTransfer = async () => {
+    if (!pendingCancelTransfer) return;
 
     try {
-      await deleteTransfer.mutateAsync(transferId);
-      setNotice({ message: 'Transferencia eliminada.', isError: false });
+      await deleteTransfer.mutateAsync(pendingCancelTransfer.id);
+      setNotice({ message: 'Transferencia cancelada.', isError: false });
     } catch (error) {
-      showError(error, 'No se pudo eliminar la transferencia.');
+      showError(error, 'No se pudo cancelar la transferencia.');
     } finally {
-      setPendingDeleteTransfer(null);
+      setPendingCancelTransfer(null);
     }
   };
 
   const transactions = transactionsQuery.data?.data ?? [];
-  const meta = transactionsQuery.data?.meta;
+  const transactionMeta = transactionsQuery.data?.meta;
+  const transfers = transfersQuery.data?.data ?? [];
+  const transferMeta = transfersQuery.data?.meta;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Movimientos</h1>
-          <p className="text-sm text-muted-foreground">
-            Registra y consulta tus ingresos y egresos.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setEditingTransfer(null);
-              setTransferModalOpen(true);
-            }}
-          >
-            <Plus aria-hidden="true" className="mr-2 h-4 w-4" />
-            Nueva transferencia
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              setEditing(null);
-              setModalOpen(true);
-            }}
-          >
-            <Plus aria-hidden="true" className="mr-2 h-4 w-4" />
-            Nuevo movimiento
-          </Button>
-        </div>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">Movimientos y transferencias</h1>
+        <p className="text-sm text-muted-foreground">
+          Registra y consulta tus ingresos, egresos y transferencias entre cuentas.
+        </p>
       </div>
 
       {notice && (
@@ -210,83 +181,174 @@ export default function TransactionsPage() {
         </p>
       )}
 
-      <TransactionFilters
-        filters={filters}
-        accounts={accounts}
-        categories={categories}
-        onChange={(nextFilters) => {
-          setFilterValues({
-            accountId: nextFilters.accountId,
-            categoryId: nextFilters.categoryId,
-            type: nextFilters.type,
-            status: nextFilters.status,
-            from: nextFilters.from,
-            to: nextFilters.to,
-          });
-          setPage(1);
-        }}
-        onReset={() => {
-          setFilterValues({});
-          setPage(1);
-        }}
-      />
+      <section aria-labelledby="transactions-heading" className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 id="transactions-heading" className="text-xl font-semibold text-foreground">
+              Movimientos
+            </h2>
+            <p className="text-sm text-muted-foreground">Ingresos y egresos.</p>
+          </div>
+          <Button
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setModalOpen(true);
+            }}
+          >
+            <Plus aria-hidden="true" className="mr-2 h-4 w-4" />
+            Nuevo movimiento
+          </Button>
+        </div>
 
-      {transactionsQuery.isPending && (
-        <p role="status" className="text-sm text-muted-foreground">
-          Cargando movimientos...
-        </p>
-      )}
-      {transactionsQuery.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {transactionsQuery.error instanceof Error
-            ? transactionsQuery.error.message
-            : 'No se pudieron cargar los movimientos.'}
-        </p>
-      )}
-      {transactionsQuery.isSuccess && (
-        <TransactionList
-          transactions={transactions}
-          accountNameById={accountNameById}
-          categoryNameById={categoryNameById}
-          onEdit={(transaction) => {
-            if (transaction.type === 'TRANSFER') {
-              setEditingTransfer(transaction);
-              setTransferModalOpen(true);
-              return;
-            }
-            setEditing(transaction);
-            setModalOpen(true);
+        <TransactionFilters
+          filters={filters}
+          accounts={accounts}
+          categories={categories}
+          onChange={(nextFilters) => {
+            setFilterValues({
+              accountId: nextFilters.accountId,
+              categoryId: nextFilters.categoryId,
+              type: nextFilters.type,
+              status: nextFilters.status,
+              from: nextFilters.from,
+              to: nextFilters.to,
+            });
+            setPage(1);
           }}
-          onDelete={setPendingDelete}
-          onDeleteTransfer={handleDeleteTransfer}
+          onReset={() => setFilterValues({})}
         />
-      )}
 
-      {meta && meta.totalPages > 1 && (
-        <nav aria-label="Paginación de movimientos" className="flex items-center justify-between">
+        {transactionsQuery.isPending && (
+          <p role="status" className="text-sm text-muted-foreground">
+            Cargando movimientos...
+          </p>
+        )}
+        {transactionsQuery.isError && (
+          <p role="alert" className="text-sm text-destructive">
+            {transactionsQuery.error instanceof Error
+              ? transactionsQuery.error.message
+              : 'No se pudieron cargar los movimientos.'}
+          </p>
+        )}
+        {transactionsQuery.isSuccess && (
+          <TransactionList
+            transactions={transactions}
+            accountNameById={accountNameById}
+            categoryNameById={categoryNameById}
+            onEdit={(transaction) => {
+              setEditing(transaction);
+              setModalOpen(true);
+            }}
+            onDelete={setPendingDelete}
+          />
+        )}
+
+        {transactionMeta && transactionMeta.totalPages > 1 && (
+          <nav aria-label="Paginación de movimientos" className="flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={page <= 1 || transactionsQuery.isFetching}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Página {transactionMeta.page} de {transactionMeta.totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setPage((current) => Math.min(transactionMeta.totalPages, current + 1))
+              }
+              disabled={page >= transactionMeta.totalPages || transactionsQuery.isFetching}
+            >
+              Siguiente
+            </Button>
+          </nav>
+        )}
+      </section>
+
+      <section aria-labelledby="transfers-heading" className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 id="transfers-heading" className="text-xl font-semibold text-foreground">
+              Transferencias
+            </h2>
+            <p className="text-sm text-muted-foreground">Movimientos entre tus propias cuentas.</p>
+          </div>
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-            disabled={page <= 1 || transactionsQuery.isFetching}
+            onClick={() => {
+              setEditingTransfer(null);
+              setTransferModalOpen(true);
+            }}
           >
-            Anterior
+            <Plus aria-hidden="true" className="mr-2 h-4 w-4" />
+            Nueva transferencia
           </Button>
-          <span className="text-sm text-muted-foreground">
-            Página {meta.page} de {meta.totalPages}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((currentPage) => Math.min(meta.totalPages, currentPage + 1))}
-            disabled={page >= meta.totalPages || transactionsQuery.isFetching}
+        </div>
+
+        {transfersQuery.isPending && (
+          <p role="status" className="text-sm text-muted-foreground">
+            Cargando transferencias...
+          </p>
+        )}
+        {transfersQuery.isError && (
+          <p role="alert" className="text-sm text-destructive">
+            {transfersQuery.error instanceof Error
+              ? transfersQuery.error.message
+              : 'No se pudieron cargar las transferencias.'}
+          </p>
+        )}
+        {transfersQuery.isSuccess && (
+          <TransferList
+            transfers={transfers}
+            accountNameById={accountNameById}
+            onEdit={(transfer) => {
+              setEditingTransfer(transfer);
+              setTransferModalOpen(true);
+            }}
+            onCancel={setPendingCancelTransfer}
+          />
+        )}
+
+        {transferMeta && transferMeta.totalPages > 1 && (
+          <nav
+            aria-label="Paginación de transferencias"
+            className="flex items-center justify-between"
           >
-            Siguiente
-          </Button>
-        </nav>
-      )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setTransferPage((current) => Math.max(1, current - 1))}
+              disabled={transferPage <= 1 || transfersQuery.isFetching}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Página {transferMeta.page} de {transferMeta.totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setTransferPage((current) => Math.min(transferMeta.totalPages, current + 1))
+              }
+              disabled={transferPage >= transferMeta.totalPages || transfersQuery.isFetching}
+            >
+              Siguiente
+            </Button>
+          </nav>
+        )}
+      </section>
 
       <TransactionFormModal
         open={modalOpen}
@@ -327,17 +389,17 @@ export default function TransactionsPage() {
       />
 
       <ConfirmationModal
-        open={Boolean(pendingDeleteTransfer)}
-        onOpenChange={(isOpen) => !isOpen && setPendingDeleteTransfer(null)}
-        title="Eliminar transferencia"
-        description={`¿Seguro que quieres eliminar esta transferencia de ${
-          pendingDeleteTransfer
-            ? formatCurrency(pendingDeleteTransfer.amount, pendingDeleteTransfer.currency)
+        open={Boolean(pendingCancelTransfer)}
+        onOpenChange={(isOpen) => !isOpen && setPendingCancelTransfer(null)}
+        title="Cancelar transferencia"
+        description={`¿Seguro que quieres cancelar esta transferencia de ${
+          pendingCancelTransfer
+            ? formatCurrency(pendingCancelTransfer.amount, pendingCancelTransfer.currency)
             : ''
-        }? Se eliminarán ambas partes y se revertirán los saldos de las cuentas.`}
-        confirmLabel="Eliminar transferencia"
-        cancelLabel="Cancelar"
-        onConfirm={confirmDeleteTransfer}
+        }? Se revertirán los saldos derivados de las cuentas.`}
+        confirmLabel="Cancelar transferencia"
+        cancelLabel="Volver"
+        onConfirm={confirmCancelTransfer}
         variant="destructive"
         isLoading={deleteTransfer.isPending}
       />

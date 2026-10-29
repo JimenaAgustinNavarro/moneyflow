@@ -98,7 +98,7 @@ export function TransactionFormModal({
   useEffect(() => {
     if (!open) return;
 
-    if (editing && editing.type !== 'TRANSFER') {
+    if (editing) {
       reset({
         accountId: editing.accountId,
         categoryId: editing.categoryId,
@@ -157,8 +157,6 @@ export function TransactionFormModal({
   });
 
   const errors = form.formState.errors;
-  const isTransfer = editing?.type === 'TRANSFER';
-
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -172,141 +170,131 @@ export function TransactionFormModal({
           </p>
         )}
 
-        {isTransfer ? (
-          <p className="text-sm text-muted-foreground">
-            Las transferencias se gestionan como una operación completa y no se pueden editar aquí.
-          </p>
-        ) : (
-          <form onSubmit={submit} className="space-y-4" noValidate>
-            <div className="space-y-2">
-              <Label htmlFor="transaction-type">Tipo</Label>
-              <Controller
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={(value: 'INCOME' | 'EXPENSE') => {
-                      field.onChange(value);
-                      setValue('categoryId', null);
-                    }}
-                    disabled={editing?.status === 'CONFIRMED'}
+        <form onSubmit={submit} className="space-y-4" noValidate>
+          <div className="space-y-2">
+            <Label htmlFor="transaction-type">Tipo</Label>
+            <Controller
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onValueChange={(value: 'INCOME' | 'EXPENSE') => {
+                    field.onChange(value);
+                    setValue('categoryId', null);
+                  }}
+                  disabled={editing?.status === 'CONFIRMED'}
+                >
+                  <SelectTrigger
+                    id="transaction-type"
+                    className="w-full"
+                    title={
+                      editing?.status === 'CONFIRMED'
+                        ? 'No puedes cambiar el tipo de un movimiento confirmado'
+                        : undefined
+                    }
                   >
-                    <SelectTrigger
-                      id="transaction-type"
-                      className="w-full"
-                      title={
-                        editing?.status === 'CONFIRMED'
-                          ? 'No puedes cambiar el tipo de un movimiento confirmado'
-                          : undefined
-                      }
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="INCOME">Ingreso</SelectItem>
-                      <SelectItem value="EXPENSE">Egreso</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="transaction-account">Cuenta</Label>
-              <Controller
-                control={form.control}
-                name="accountId"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger id="transaction-account" className="w-full">
-                      <SelectValue placeholder="Selecciona una cuenta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.accountId && (
-                <p className="text-xs text-destructive">{errors.accountId.message}</p>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INCOME">Ingreso</SelectItem>
+                    <SelectItem value="EXPENSE">Egreso</SelectItem>
+                  </SelectContent>
+                </Select>
               )}
-            </div>
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="transaction-category">Categoría</Label>
-              <Controller
-                control={form.control}
-                name="categoryId"
-                render={({ field }) => (
-                  <Select
-                    value={field.value ?? '__none__'}
-                    onValueChange={(value) => field.onChange(value === '__none__' ? null : value)}
-                  >
-                    <SelectTrigger id="transaction-category" className="w-full">
-                      <SelectValue placeholder="Sin categoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Sin categoría</SelectItem>
-                      {filteredCategories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="transaction-amount">Monto</Label>
-              <Input
-                id="transaction-amount"
-                inputMode="decimal"
-                aria-invalid={Boolean(errors.amount)}
-                {...form.register('amount')}
-              />
-              {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="transaction-date">Fecha</Label>
-              <Input
-                id="transaction-date"
-                type="date"
-                aria-invalid={Boolean(errors.date)}
-                {...form.register('date')}
-              />
-              {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="transaction-description">Descripción (opcional)</Label>
-              <Input
-                id="transaction-description"
-                maxLength={500}
-                {...form.register('description')}
-              />
-              {errors.description && (
-                <p className="text-xs text-destructive">{errors.description.message}</p>
+          <div className="space-y-2">
+            <Label htmlFor="transaction-account">Cuenta</Label>
+            <Controller
+              control={form.control}
+              name="accountId"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger id="transaction-account" className="w-full">
+                    <SelectValue placeholder="Selecciona una cuenta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
-            </div>
+            />
+            {errors.accountId && (
+              <p className="text-xs text-destructive">{errors.accountId.message}</p>
+            )}
+          </div>
 
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Guardando...' : editing ? 'Guardar' : 'Crear movimiento'}
-              </Button>
-            </div>
-          </form>
-        )}
+          <div className="space-y-2">
+            <Label htmlFor="transaction-category">Categoría</Label>
+            <Controller
+              control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? '__none__'}
+                  onValueChange={(value) => field.onChange(value === '__none__' ? null : value)}
+                >
+                  <SelectTrigger id="transaction-category" className="w-full">
+                    <SelectValue placeholder="Sin categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sin categoría</SelectItem>
+                    {filteredCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="transaction-amount">Monto</Label>
+            <Input
+              id="transaction-amount"
+              inputMode="decimal"
+              aria-invalid={Boolean(errors.amount)}
+              {...form.register('amount')}
+            />
+            {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="transaction-date">Fecha</Label>
+            <Input
+              id="transaction-date"
+              type="date"
+              aria-invalid={Boolean(errors.date)}
+              {...form.register('date')}
+            />
+            {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="transaction-description">Descripción (opcional)</Label>
+            <Input id="transaction-description" maxLength={500} {...form.register('description')} />
+            {errors.description && (
+              <p className="text-xs text-destructive">{errors.description.message}</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Guardando...' : editing ? 'Guardar' : 'Crear movimiento'}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

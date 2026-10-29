@@ -1,58 +1,32 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, TransactionStatus, TransactionType } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
+import { Prisma, Transfer, TransferStatus } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateTransferDto, UpdateTransferDto } from './dto';
-
-type SerializedTransaction = {
-  id: string;
-  transferId: string | null;
-  accountId: string;
-  counterpartAccountId: string | null;
-  type: TransactionType;
-  amount: string;
-  currency: string;
-  date: string;
-  status: TransactionStatus;
-  direction: string | null;
-  description: string | null;
-};
+import { CreateTransferDto, TransferQueryDto, UpdateTransferDto } from './dto';
 
 @Injectable()
 export class TransfersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private serialize(transaction: {
-    id: string;
-    transferId: string | null;
-    accountId: string;
-    counterpartAccountId: string | null;
-    type: TransactionType;
-    amount: Prisma.Decimal;
-    currency: string;
-    date: Date;
-    status: TransactionStatus;
-    direction: string | null;
-    description: string | null;
-  }): SerializedTransaction {
+  private serialize(transfer: Transfer) {
     return {
-      id: transaction.id,
-      transferId: transaction.transferId,
-      accountId: transaction.accountId,
-      counterpartAccountId: transaction.counterpartAccountId,
-      type: transaction.type,
-      amount: transaction.amount.toFixed(2),
-      currency: transaction.currency,
-      date: transaction.date.toISOString(),
-      status: transaction.status,
-      direction: transaction.direction,
-      description: transaction.description,
+      id: transfer.id,
+      originAccountId: transfer.originAccountId,
+      destinationAccountId: transfer.destinationAccountId,
+      amount: transfer.amount.toFixed(2),
+      currency: transfer.currency,
+      description: transfer.description,
+      occurredAt: transfer.occurredAt.toISOString(),
+      status: transfer.status,
+      cancelledAt: transfer.cancelledAt?.toISOString() ?? null,
+      createdAt: transfer.createdAt.toISOString(),
+      updatedAt: transfer.updatedAt.toISOString(),
     };
   }
 
@@ -68,6 +42,19 @@ export class TransfersService {
     const date = new Date(dateValue);
     if (date.getTime() > Date.now()) {
       throw new BadRequestException('La fecha no puede ser futura.');
+    }
+    return date;
+  }
+
+  private queryDateBoundary(dateValue: string, endOfDay: boolean): Date {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      return new Date(dateValue);
+    }
+
+    const date = new Date(`${dateValue}T00:00:00.000-05:00`);
+    if (endOfDay) {
+      date.setUTCDate(date.getUTCDate() + 1);
+      date.setTime(date.getTime() - 1);
     }
     return date;
   }
@@ -90,17 +77,6 @@ export class TransfersService {
     return account;
   }
 
-  private async applyTransferBalance(
-    tx: Prisma.TransactionClient,
-    accountId: string,
-    delta: Prisma.Decimal,
-  ): Promise<void> {
-    await tx.account.update({
-      where: { id: accountId },
-      data: { balance: { increment: delta } },
-    });
-  }
-
   async create(userId: string, dto: CreateTransferDto) {
     if (dto.originAccountId === dto.destinationAccountId) {
       throw new UnprocessableEntityException(
@@ -109,9 +85,9 @@ export class TransfersService {
     }
 
     const amount = this.parseAmount(dto.amount);
-    const date = this.validateDate(dto.date);
+    const occurredAt = this.validateDate(dto.date);
 
-    return this.prisma.$transaction(async (tx) => {
+    const transfer = await this.prisma.$transaction(async (tx) => {
       const origin = await this.validateAccount(tx, userId, dto.originAccountId, 'origen');
       const destination = await this.validateAccount(
         tx,
@@ -123,176 +99,126 @@ export class TransfersService {
         throw new UnprocessableEntityException('Las cuentas deben tener la misma moneda.');
       }
 
-      const transferId = randomUUID();
-      const description = dto.description ?? null;
-      const originLeg = await tx.transaction.create({
+      return tx.transfer.create({
         data: {
           userId,
-          accountId: origin.id,
-          counterpartAccountId: destination.id,
-          type: TransactionType.TRANSFER,
-          direction: 'OUT',
+          originAccountId: origin.id,
+          destinationAccountId: destination.id,
           amount,
           currency: origin.currency,
-          description,
-          date,
-          status: TransactionStatus.CONFIRMED,
-          transferId,
+          description: dto.description ?? null,
+          occurredAt,
+          status: TransferStatus.CONFIRMED,
         },
       });
-      const destinationLeg = await tx.transaction.create({
-        data: {
-          userId,
-          accountId: destination.id,
-          counterpartAccountId: origin.id,
-          type: TransactionType.TRANSFER,
-          direction: 'IN',
-          amount,
-          currency: destination.currency,
-          description,
-          date,
-          status: TransactionStatus.CONFIRMED,
-          transferId,
-        },
-      });
-
-      await this.applyTransferBalance(tx, origin.id, amount.negated());
-      await this.applyTransferBalance(tx, destination.id, amount);
-
-      return {
-        transferId,
-        origin: this.serialize(originLeg),
-        destination: this.serialize(destinationLeg),
-      };
     });
+
+    return this.serialize(transfer);
   }
 
-  async update(userId: string, transferId: string, dto: UpdateTransferDto) {
-    return this.prisma.$transaction(async (tx) => {
-      const legs = await tx.transaction.findMany({
-        where: { transferId, userId, deletedAt: null },
-      });
+  async findAll(userId: string, query: TransferQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const from = query.from ? this.queryDateBoundary(query.from, false) : undefined;
+    const to = query.to ? this.queryDateBoundary(query.to, true) : undefined;
+    if (from && to && from > to) {
+      throw new BadRequestException('El rango de fechas no es válido.');
+    }
 
-      if (legs.length !== 2) {
+    const where: Prisma.TransferWhereInput = {
+      userId,
+      ...(query.includeCancelled !== 'true' ? { status: TransferStatus.CONFIRMED } : {}),
+      ...(query.accountId && {
+        OR: [{ originAccountId: query.accountId }, { destinationAccountId: query.accountId }],
+      }),
+      ...(query.from || query.to
+        ? {
+            occurredAt: {
+              ...(from && { gte: from }),
+              ...(to && { lte: to }),
+            },
+          }
+        : {}),
+    };
+
+    const [total, transfers] = await this.prisma.$transaction([
+      this.prisma.transfer.count({ where }),
+      this.prisma.transfer.findMany({
+        where,
+        orderBy: { occurredAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data: transfers.map((transfer) => this.serialize(transfer)),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async findOne(userId: string, id: string) {
+    const transfer = await this.prisma.transfer.findFirst({ where: { id, userId } });
+    if (!transfer) {
+      throw new NotFoundException('Transferencia no encontrada.');
+    }
+    return this.serialize(transfer);
+  }
+
+  async update(userId: string, id: string, dto: UpdateTransferDto) {
+    const transfer = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.transfer.findFirst({ where: { id, userId } });
+      if (!existing) {
         throw new NotFoundException('Transferencia no encontrada.');
       }
-
-      const originLeg = legs.find((leg) => leg.direction === 'OUT');
-      const destinationLeg = legs.find((leg) => leg.direction === 'IN');
-      if (
-        !originLeg ||
-        !destinationLeg ||
-        originLeg.type !== TransactionType.TRANSFER ||
-        destinationLeg.type !== TransactionType.TRANSFER ||
-        originLeg.status !== TransactionStatus.CONFIRMED ||
-        destinationLeg.status !== TransactionStatus.CONFIRMED ||
-        originLeg.accountId === destinationLeg.accountId ||
-        originLeg.counterpartAccountId !== destinationLeg.accountId ||
-        destinationLeg.counterpartAccountId !== originLeg.accountId ||
-        !originLeg.amount.equals(destinationLeg.amount) ||
-        originLeg.currency !== destinationLeg.currency
-      ) {
-        throw new NotFoundException('Transferencia inconsistente.');
+      if (existing.status !== TransferStatus.CONFIRMED) {
+        throw new ConflictException('Solo se pueden editar transferencias confirmadas.');
       }
 
-      await this.applyTransferBalance(tx, originLeg.accountId, originLeg.amount);
-      await this.applyTransferBalance(
-        tx,
-        destinationLeg.accountId,
-        destinationLeg.amount.negated(),
-      );
-
-      const newOriginId = dto.originAccountId ?? originLeg.accountId;
-      const newDestinationId = dto.destinationAccountId ?? destinationLeg.accountId;
-
-      if (newOriginId === newDestinationId) {
-        throw new UnprocessableEntityException('Las cuentas deben ser distintas.');
+      const originAccountId = dto.originAccountId ?? existing.originAccountId;
+      const destinationAccountId = dto.destinationAccountId ?? existing.destinationAccountId;
+      if (originAccountId === destinationAccountId) {
+        throw new UnprocessableEntityException(
+          'Las cuentas de origen y destino deben ser distintas.',
+        );
       }
 
-      const newOrigin = await this.validateAccount(tx, userId, newOriginId, 'origen');
-      const newDestination = await this.validateAccount(tx, userId, newDestinationId, 'destino');
-      if (newOrigin.currency !== newDestination.currency) {
+      const origin = await this.validateAccount(tx, userId, originAccountId, 'origen');
+      const destination = await this.validateAccount(tx, userId, destinationAccountId, 'destino');
+      if (origin.currency !== destination.currency) {
         throw new UnprocessableEntityException('Las cuentas deben tener la misma moneda.');
       }
 
-      const newAmount = dto.amount ? this.parseAmount(dto.amount) : originLeg.amount;
-      const newDate = dto.date ? this.validateDate(dto.date) : originLeg.date;
-      const newDescription = dto.description !== undefined ? dto.description ?? null : originLeg.description;
-
-      const updatedOrigin = await tx.transaction.update({
-        where: { id: originLeg.id },
+      return tx.transfer.update({
+        where: { id },
         data: {
-          accountId: newOriginId,
-          counterpartAccountId: newDestinationId,
-          amount: newAmount,
-          date: newDate,
-          description: newDescription,
+          originAccountId,
+          destinationAccountId,
+          amount: dto.amount === undefined ? existing.amount : this.parseAmount(dto.amount),
+          occurredAt: dto.date === undefined ? existing.occurredAt : this.validateDate(dto.date),
+          description: dto.description === undefined ? existing.description : dto.description,
+          currency: origin.currency,
         },
       });
-
-      const updatedDestination = await tx.transaction.update({
-        where: { id: destinationLeg.id },
-        data: {
-          accountId: newDestinationId,
-          counterpartAccountId: newOriginId,
-          amount: newAmount,
-          date: newDate,
-          description: newDescription,
-        },
-      });
-
-      await this.applyTransferBalance(tx, newOriginId, newAmount.negated());
-      await this.applyTransferBalance(tx, newDestinationId, newAmount);
-
-      return {
-        transferId,
-        origin: this.serialize(updatedOrigin),
-        destination: this.serialize(updatedDestination),
-      };
     });
+
+    return this.serialize(transfer);
   }
 
-  async remove(userId: string, transferId: string): Promise<void> {
+  async remove(userId: string, id: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      const legs = await tx.transaction.findMany({
-        where: { transferId, userId, deletedAt: null },
+      const transfer = await tx.transfer.findFirst({ where: { id, userId } });
+      if (!transfer) {
+        throw new NotFoundException('Transferencia no encontrada.');
+      }
+      if (transfer.status !== TransferStatus.CONFIRMED) {
+        throw new ConflictException('Solo se pueden cancelar transferencias confirmadas.');
+      }
+
+      await tx.transfer.update({
+        where: { id },
+        data: { status: TransferStatus.CANCELLED, cancelledAt: new Date() },
       });
-      if (legs.length !== 2) {
-        throw new NotFoundException('Transferencia no encontrada.');
-      }
-
-      const originLeg = legs.find((leg) => leg.direction === 'OUT');
-      const destinationLeg = legs.find((leg) => leg.direction === 'IN');
-      if (
-        !originLeg ||
-        !destinationLeg ||
-        originLeg.type !== TransactionType.TRANSFER ||
-        destinationLeg.type !== TransactionType.TRANSFER ||
-        originLeg.status !== TransactionStatus.CONFIRMED ||
-        destinationLeg.status !== TransactionStatus.CONFIRMED ||
-        originLeg.accountId === destinationLeg.accountId ||
-        originLeg.counterpartAccountId !== destinationLeg.accountId ||
-        destinationLeg.counterpartAccountId !== originLeg.accountId ||
-        !originLeg.amount.equals(destinationLeg.amount) ||
-        originLeg.currency !== destinationLeg.currency
-      ) {
-        throw new NotFoundException('Transferencia no encontrada.');
-      }
-
-      const deleted = await tx.transaction.updateMany({
-        where: { transferId, userId, deletedAt: null },
-        data: { deletedAt: new Date() },
-      });
-      if (deleted.count !== 2) {
-        throw new NotFoundException('Transferencia no encontrada.');
-      }
-
-      await this.applyTransferBalance(tx, originLeg.accountId, originLeg.amount);
-      await this.applyTransferBalance(
-        tx,
-        destinationLeg.accountId,
-        destinationLeg.amount.negated(),
-      );
     });
   }
 }

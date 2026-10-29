@@ -11,6 +11,7 @@ Este documento define los contratos de API del MVP de MoneyFlow. Todos los endpo
 ## 0. Convenciones generales
 
 ### 0.1 Base URL
+
 /api/v1
 
 text
@@ -25,11 +26,13 @@ Authorization: Bearer <access_token>
 text
 
 **El access token:**
+
 - Es un JWT firmado con `RS256` (o `HS256` con secreto fuerte).
 - Expira en **15 minutos**.
 - Payload: `{ sub: userId, email, iat, exp }`.
 
 **El refresh token:**
+
 - Es opaco (no JWT).
 - Expira en **30 días**.
 - Se guarda hasheado en `refresh_tokens`.
@@ -39,7 +42,7 @@ text
 
 **Éxito (2xx):**
 
-```json
+````json
 {
   "data": { ... }
 }
@@ -73,7 +76,7 @@ Todas las respuestas de error HTTP usan el siguiente formato:
   "timestamp": "2026-10-16T14:30:00.000-05:00",
   "path": "/api/v1/accounts/abc-123"
 }
-```
+````
 
 - `message` es un string para errores simples y un array de strings para
   errores de validación.
@@ -86,15 +89,17 @@ Todas las respuestas de error HTTP usan el siguiente formato:
 
 ### 0.4 Códigos de error estándar
 
-Código	Significado
-400	Bad Request — validación fallida
-401	Unauthorized — token inválido o ausente
-403	Forbidden — sin permiso
-404	Not Found — recurso no encontrado (o no pertenece al usuario)
-409	Conflict — conflicto de estado o unicidad
-422	Unprocessable Entity — validación de negocio
-500	Internal Server Error — error no controlado
+Código Significado
+400 Bad Request — validación fallida
+401 Unauthorized — token inválido o ausente
+403 Forbidden — sin permiso
+404 Not Found — recurso no encontrado (o no pertenece al usuario)
+409 Conflict — conflicto de estado o unicidad
+422 Unprocessable Entity — validación de negocio
+500 Internal Server Error — error no controlado
+
 ### 0.5 Formato de montos
+
 Todos los montos se devuelven como string:
 
 json
@@ -118,7 +123,7 @@ Todos los IDs son UUID v4 (string):
 json
 "id": "550e8400-e29b-41d4-a716-446655440000"
 0.8 Paginación
-Endpoints con paginación: GET /transactions, GET /obligations, GET /notifications.
+Endpoints con paginación: GET /transactions, GET /transfers, GET /obligations, GET /notifications.
 
 Query params:
 
@@ -132,8 +137,8 @@ Response:
 
 json
 {
-  "data": [ ... ],
-  "meta": { "page": 1, "limit": 20, "total": 145, "totalPages": 8 }
+"data": [ ... ],
+"meta": { "page": 1, "limit": 20, "total": 145, "totalPages": 8 }
 }
 Endpoints sin paginación: GET /accounts, /categories, /budgets, /savings-goals, /tags, /recurrences.
 
@@ -141,7 +146,7 @@ Response:
 
 json
 {
-  "data": [ ... ]
+"data": [ ... ]
 }
 0.9 Soft delete
 Endpoints de restauración: POST /:entidad/:id/restore.
@@ -160,6 +165,7 @@ Nunca se confía en el userId del body.
 Si un recurso no pertenece al usuario → 404 (no 403, para no filtrar existencia).
 
 ### 1. Módulo Auth (/auth)
+
 1.1 POST /auth/register
 Descripción: Registrar un nuevo usuario.
 
@@ -169,9 +175,9 @@ Body:
 
 json
 {
-  "email": "jimena@example.com",
-  "password": "minimo8chars",
-  "name": "Jimena Agustín"
+"email": "jimena@example.com",
+"password": "minimo8chars",
+"name": "Jimena Agustín"
 }
 Validaciones:
 
@@ -185,12 +191,12 @@ Response (201):
 
 json
 {
-  "data": {
-    "id": "550e8400-...",
-    "email": "jimena@example.com",
-    "name": "Jimena Agustín",
-    "createdAt": "2026-10-16T14:30:00-05:00"
-  }
+"data": {
+"id": "550e8400-...",
+"email": "jimena@example.com",
+"name": "Jimena Agustín",
+"createdAt": "2026-10-16T14:30:00-05:00"
+}
 }
 Errores:
 
@@ -209,22 +215,22 @@ Body:
 
 json
 {
-  "email": "jimena@example.com",
-  "password": "minimo8chars"
+"email": "jimena@example.com",
+"password": "minimo8chars"
 }
 Response (200):
 
 json
 {
-  "data": {
-    "accessToken": "eyJhbGciOi...",
-    "refreshToken": "opaque-refresh-token",
-    "user": {
-      "id": "550e8400-...",
-      "email": "jimena@example.com",
-      "name": "Jimena Agustín"
-    }
-  }
+"data": {
+"accessToken": "eyJhbGciOi...",
+"refreshToken": "opaque-refresh-token",
+"user": {
+"id": "550e8400-...",
+"email": "jimena@example.com",
+"name": "Jimena Agustín"
+}
+}
 }
 Errores:
 
@@ -243,16 +249,16 @@ Body:
 
 json
 {
-  "refreshToken": "opaque-refresh-token"
+"refreshToken": "opaque-refresh-token"
 }
 Response (200):
 
 json
 {
-  "data": {
-    "accessToken": "eyJhbGciOi...",
-    "refreshToken": "new-opaque-refresh-token"
-  }
+"data": {
+"accessToken": "eyJhbGciOi...",
+"refreshToken": "new-opaque-refresh-token"
+}
 }
 Errores:
 
@@ -275,7 +281,7 @@ Body:
 
 json
 {
-  "refreshToken": "opaque-refresh-token"
+"refreshToken": "opaque-refresh-token"
 }
 Response (204): sin body.
 
@@ -292,21 +298,21 @@ Response (200):
 
 json
 {
-  "data": {
-    "id": "550e8400-...",
-    "email": "jimena@example.com",
-    "name": "Jimena Agustín",
-    "timezone": "America/Lima",
-    "createdAt": "2026-10-16T14:30:00-05:00"
-  }
+"data": {
+"id": "550e8400-...",
+"email": "jimena@example.com",
+"name": "Jimena Agustín",
+"timezone": "America/Lima",
+"createdAt": "2026-10-16T14:30:00-05:00"
+}
 }
 Errores:
 
 401: token inválido.
 
 2. Módulo Users (/users)
-2.1 PATCH /users/me
-Descripción: Actualizar nombre y/o timezone del usuario.
+   2.1 PATCH /users/me
+   Descripción: Actualizar nombre y/o timezone del usuario.
 
 Auth: Sí.
 
@@ -314,8 +320,8 @@ Body:
 
 json
 {
-  "name": "Jimena Agustín Ruiz",
-  "timezone": "America/Lima"
+"name": "Jimena Agustín Ruiz",
+"timezone": "America/Lima"
 }
 Validaciones:
 
@@ -327,13 +333,13 @@ Response (200):
 
 json
 {
-  "data": {
-    "id": "550e8400-...",
-    "email": "jimena@example.com",
-    "name": "Jimena Agustín Ruiz",
-    "timezone": "America/Lima",
-    "updatedAt": "2026-10-16T15:00:00-05:00"
-  }
+"data": {
+"id": "550e8400-...",
+"email": "jimena@example.com",
+"name": "Jimena Agustín Ruiz",
+"timezone": "America/Lima",
+"updatedAt": "2026-10-16T15:00:00-05:00"
+}
 }
 Errores:
 
@@ -350,8 +356,8 @@ Body:
 
 json
 {
-  "currentPassword": "minimo8chars",
-  "newPassword": "nuevominimo8chars"
+"currentPassword": "minimo8chars",
+"newPassword": "nuevominimo8chars"
 }
 Validaciones:
 
@@ -378,7 +384,7 @@ Body:
 
 json
 {
-  "password": "minimo8chars"
+"password": "minimo8chars"
 }
 Validaciones:
 
@@ -399,8 +405,8 @@ Se revocan todos los refresh tokens.
 Los datos quedan en la BD (soft delete).
 
 3. Módulo Accounts (/accounts)
-3.1 GET /accounts
-Descripción: Listar cuentas del usuario.
+   3.1 GET /accounts
+   Descripción: Listar cuentas del usuario.
 
 Auth: Sí.
 
@@ -416,20 +422,20 @@ Response (200):
 
 json
 {
-  "data": [
-    {
-      "id": "550e8400-...",
-      "name": "BCP Ahorros",
-      "type": "BANK",
-      "currency": "PEN",
-      "initialBalance": "1000.00",
-      "balance": "1500.50",
-      "archived": false,
-      "deletedAt": null,
-      "createdAt": "2026-10-16T14:30:00-05:00",
-      "updatedAt": "2026-10-16T15:00:00-05:00"
-    }
-  ]
+"data": [
+{
+"id": "550e8400-...",
+"name": "BCP Ahorros",
+"type": "BANK",
+"currency": "PEN",
+"initialBalance": "1000.00",
+"balance": "1500.50",
+"archived": false,
+"deletedAt": null,
+"createdAt": "2026-10-16T14:30:00-05:00",
+"updatedAt": "2026-10-16T15:00:00-05:00"
+}
+]
 }
 Errores:
 
@@ -444,9 +450,9 @@ Body:
 
 json
 {
-  "name": "BCP Ahorros",
-  "type": "BANK",
-  "initialBalance": "1000.00"
+"name": "BCP Ahorros",
+"type": "BANK",
+"initialBalance": "1000.00"
 }
 Validaciones:
 
@@ -462,15 +468,15 @@ Response (201):
 
 json
 {
-  "data": {
-    "id": "550e8400-...",
-    "name": "BCP Ahorros",
-    "type": "BANK",
-    "currency": "PEN",
-    "initialBalance": "1000.00",
-    "balance": "1000.00",
-    "archived": false
-  }
+"data": {
+"id": "550e8400-...",
+"name": "BCP Ahorros",
+"type": "BANK",
+"currency": "PEN",
+"initialBalance": "1000.00",
+"balance": "1000.00",
+"archived": false
+}
 }
 Errores:
 
@@ -493,17 +499,17 @@ Response (200):
 
 json
 {
-  "data": {
-    "id": "550e8400-...",
-    "name": "BCP Ahorros",
-    "type": "BANK",
-    "currency": "PEN",
-    "initialBalance": "1000.00",
-    "balance": "1500.50",
-    "archived": false,
-    "createdAt": "2026-10-16T14:30:00-05:00",
-    "updatedAt": "2026-10-16T15:00:00-05:00"
-  }
+"data": {
+"id": "550e8400-...",
+"name": "BCP Ahorros",
+"type": "BANK",
+"currency": "PEN",
+"initialBalance": "1000.00",
+"balance": "1500.50",
+"archived": false,
+"createdAt": "2026-10-16T14:30:00-05:00",
+"updatedAt": "2026-10-16T15:00:00-05:00"
+}
 }
 Errores:
 
@@ -520,9 +526,9 @@ Body:
 
 json
 {
-  "name": "BCP Ahorros 2",
-  "type": "BANK",
-  "archived": true
+"name": "BCP Ahorros 2",
+"type": "BANK",
+"archived": true
 }
 Validaciones:
 
@@ -559,11 +565,11 @@ Errores:
 
 404: cuenta no encontrada.
 
-409: la cuenta tiene movimientos CONFIRMED (usar archived = true en su lugar).
+409: la cuenta tiene movimientos o transferencias CONFIRMED (usar archived = true en su lugar).
 
 Reglas de negocio:
 
-domain-rules.md sección 3.4: no se puede borrar una cuenta con movimientos CONFIRMED.
+domain-rules.md sección 3.4: no se puede borrar una cuenta con movimientos o transferencias CONFIRMED.
 
 Se marca deletedAt = now().
 
@@ -597,11 +603,11 @@ Response (200):
 
 json
 {
-  "data": {
-    "id": "550e8400-...",
-    "balance": "1500.50",
-    "recalculatedAt": "2026-10-16T15:00:00-05:00"
-  }
+"data": {
+"id": "550e8400-...",
+"balance": "1500.50",
+"recalculatedAt": "2026-10-16T15:00:00-05:00"
+}
 }
 Errores:
 
@@ -609,13 +615,13 @@ Errores:
 
 Reglas de negocio:
 
-domain-rules.md sección 2.4: recalcula balance sumando todos los movimientos CONFIRMED.
+Deriva el balance desde `initialBalance` y los registros confirmados del ledger.
 
 Útil para auditar inconsistencias.
 
 4. Módulo Categories (/categories)
-4.1 GET /categories
-Descripción: Listar categorías (del sistema + del usuario).
+   4.1 GET /categories
+   Descripción: Listar categorías (del sistema + del usuario).
 
 Auth: Sí.
 
@@ -632,18 +638,18 @@ Response (200):
 
 json
 {
-  "data": [
-    {
-      "id": "550e8400-...",
-      "name": "Sueldo",
-      "type": "INCOME",
-      "parentId": null,
-      "icon": "wallet",
-      "color": "#10b981",
-      "isSystem": true,
-      "createdAt": "2026-01-01T00:00:00-05:00"
-    }
-  ]
+"data": [
+{
+"id": "550e8400-...",
+"name": "Sueldo",
+"type": "INCOME",
+"parentId": null,
+"icon": "wallet",
+"color": "#10b981",
+"isSystem": true,
+"createdAt": "2026-01-01T00:00:00-05:00"
+}
+]
 }
 Errores:
 
@@ -662,11 +668,11 @@ Body:
 
 json
 {
-  "name": "Mascotas",
-  "type": "EXPENSE",
-  "parentId": null,
-  "icon": "paw-print",
-  "color": "#f59e0b"
+"name": "Mascotas",
+"type": "EXPENSE",
+"parentId": null,
+"icon": "paw-print",
+"color": "#f59e0b"
 }
 Validaciones:
 
@@ -722,9 +728,9 @@ Body:
 
 json
 {
-  "name": "Mascotas y veterinaria",
-  "icon": "dog",
-  "color": "#ef4444"
+"name": "Mascotas y veterinaria",
+"icon": "dog",
+"color": "#ef4444"
 }
 Validaciones:
 
@@ -796,8 +802,8 @@ Seed de categorías del sistema:
 La seed es idempotente y crea únicamente las categorías del sistema que aún no existan.
 
 5. Módulo Transactions (/transactions)
-5.1 GET /transactions
-Descripción: Listar movimientos con filtros.
+   5.1 GET /transactions
+   Descripción: Listar movimientos con filtros.
 
 Auth: Sí.
 
@@ -807,7 +813,7 @@ accountId (opcional): UUID.
 
 categoryId (opcional): UUID.
 
-type (opcional): INCOME | EXPENSE | TRANSFER.
+type (opcional): INCOME | EXPENSE.
 
 status (opcional): PENDING | CONFIRMED | CANCELLED.
 
@@ -825,31 +831,27 @@ Response (200):
 
 json
 {
-  "data": [
-    {
-      "id": "550e8400-...",
-      "accountId": "550e8400-...",
-      "categoryId": "550e8400-...",
-      "type": "EXPENSE",
-      "amount": "150.50",
-      "currency": "PEN",
-      "description": "Supermercado",
-      "date": "2026-10-15T10:00:00-05:00",
-      "status": "CONFIRMED",
-      "direction": null,
-      "transferId": null,
-      "counterpartAccountId": null,
-      "obligationId": null,
-      "createdAt": "2026-10-15T10:00:00-05:00",
-      "updatedAt": "2026-10-15T10:00:00-05:00"
-    }
-  ],
-  "meta": {
-    "page": 1,
-    "limit": 20,
-    "total": 145,
-    "totalPages": 8
-  }
+"data": [
+{
+"id": "550e8400-...",
+"accountId": "550e8400-...",
+"categoryId": "550e8400-...",
+"type": "EXPENSE",
+"amount": "150.50",
+"currency": "PEN",
+"description": "Supermercado",
+"date": "2026-10-15T10:00:00-05:00",
+"status": "CONFIRMED",
+"createdAt": "2026-10-15T10:00:00-05:00",
+"updatedAt": "2026-10-15T10:00:00-05:00"
+}
+],
+"meta": {
+"page": 1,
+"limit": 20,
+"total": 145,
+"totalPages": 8
+}
 }
 Errores:
 
@@ -859,7 +861,7 @@ Errores:
 
 Reglas de negocio:
 
-Filtra por `userId` del token. `type` acepta `INCOME`, `EXPENSE` o `TRANSFER`.
+Filtra por `userId` del token. `type` acepta `INCOME` o `EXPENSE`. La API expone el campo `date`, que se mapea desde `occurredAt` en Prisma.
 
 Ordenado por `date` descendente y, en caso de empate, `createdAt` descendente.
 
@@ -875,13 +877,13 @@ Body:
 
 json
 {
-  "accountId": "550e8400-...",
-  "categoryId": "550e8400-...",
-  "type": "EXPENSE",
-  "amount": "150.50",
-  "description": "Supermercado",
-  "date": "2026-10-15T10:00:00-05:00",
-  "status": "CONFIRMED"
+"accountId": "550e8400-...",
+"categoryId": "550e8400-...",
+"type": "EXPENSE",
+"amount": "150.50",
+"description": "Supermercado",
+"date": "2026-10-15T10:00:00-05:00",
+"status": "CONFIRMED"
 }
 Validaciones:
 
@@ -904,18 +906,18 @@ Response (201):
 
 json
 {
-  "data": {
-    "id": "550e8400-...",
-    "accountId": "550e8400-...",
-    "categoryId": "550e8400-...",
-    "type": "EXPENSE",
-    "amount": "150.50",
-    "currency": "PEN",
-    "description": "Supermercado",
-    "date": "2026-10-15T10:00:00-05:00",
-    "status": "CONFIRMED",
-    "createdAt": "2026-10-15T10:00:00-05:00"
-  }
+"data": {
+"id": "550e8400-...",
+"accountId": "550e8400-...",
+"categoryId": "550e8400-...",
+"type": "EXPENSE",
+"amount": "150.50",
+"currency": "PEN",
+"description": "Supermercado",
+"date": "2026-10-15T10:00:00-05:00",
+"status": "CONFIRMED",
+"createdAt": "2026-10-15T10:00:00-05:00"
+}
 }
 Errores:
 
@@ -927,12 +929,12 @@ Errores:
 
 Reglas de negocio:
 
-domain-rules.md sección 2.4: actualiza accounts.balance en la misma transacción.
+El saldo de la cuenta se deriva del ledger y no se persiste en `accounts`.
 
 domain-rules.md sección 3.1: valida que amount > 0.
 
-Solo los movimientos `CONFIRMED` modifican el saldo. `PENDING` y `CANCELLED`
-no lo modifican. El status predeterminado es `CONFIRMED`.
+Solo los movimientos `CONFIRMED` se incluyen al derivar el saldo. `PENDING` y
+`CANCELLED` no lo modifican. El status predeterminado es `CONFIRMED`.
 
 5.3 GET /transactions/:id
 Descripción: Obtener detalle de un movimiento.
@@ -954,9 +956,9 @@ Body:
 
 json
 {
-  "amount": "200.00",
-  "description": "Supermercado grande",
-  "categoryId": "550e8400-..."
+"amount": "200.00",
+"description": "Supermercado grande",
+"categoryId": "550e8400-..."
 }
 Validaciones:
 
@@ -998,12 +1000,9 @@ Errores:
 
 Reglas de negocio:
 
-domain-rules.md sección 3.3: recalcula accounts.balance.
-
-MF-19 elimina únicamente este movimiento y revierte su efecto si está
-`CONFIRMED`. El manejo de transferencias vinculadas (`transferId`) se pospone
-a MF-20 (FIX-TRANSFER-02); el cambio de estado de obligaciones vinculadas
-(`obligationId`) se pospone hasta implementar obligations (FIX-OBLIGATION-01).
+El borrado lógico excluye el movimiento del balance derivado si estaba
+`CONFIRMED`. Las transferencias se cancelan desde `/transfers`, no desde este
+endpoint.
 
 5.6 POST /transactions/:id/restore
 Descripción: Restaurar un movimiento borrado.
@@ -1018,94 +1017,76 @@ Errores:
 
 422: la cuenta asociada está borrada o archivada.
 
-5.7 POST /transfers
-Descripción: Crear una transferencia entre dos cuentas del mismo usuario.
+5.7 GET /transfers
+Descripción: Listar transferencias del usuario.
 
 Auth: Sí.
 
-Body:
+Query params:
 
-json
-{
-  "originAccountId": "550e8400-...",
-  "destinationAccountId": "550e8400-...",
-  "amount": "500.00",
-  "description": "Ahorro mensual",
-  "date": "2026-10-15T10:00:00-05:00"
-}
-Validaciones:
+accountId (opcional): UUID; filtra transferencias de entrada o salida de la cuenta.
 
-originAccountId y destinationAccountId: distintas, del mismo usuario.
+from, to (opcional): fechas ISO 8601 inclusivas; las fechas `YYYY-MM-DD` abarcan el día completo en `America/Lima`.
 
-amount: > 0.
+includeCancelled (opcional): `true` incluye transferencias canceladas para auditoría.
 
-date: obligatorio, formato ISO 8601 con zona horaria y no puede ser futura.
+page (opcional): default 1.
 
-Las cuentas deben estar activas y no archivadas. Una cuenta archivada responde
-400; una cuenta eliminada o que no pertenece al usuario responde 404.
+limit (opcional): default 20, máximo 100.
 
-Misma moneda (en MVP, siempre PEN).
+Por defecto solo se listan transferencias `CONFIRMED`.
 
-Response (201):
+Response (200): `{ "data": [Transfer], "meta": { "page": 1, "limit": 20, "total": 0, "totalPages": 0 } }`.
 
-json
-{
-  "data": {
-    "transferId": "550e8400-...",
-    "origin": {
-      "id": "550e8400-...",
-      "accountId": "550e8400-...",
-      "type": "TRANSFER",
-      "amount": "500.00",
-      "counterpartAccountId": "550e8400-..."
-    },
-    "destination": {
-      "id": "550e8400-...",
-      "accountId": "550e8400-...",
-      "type": "TRANSFER",
-      "amount": "500.00",
-      "counterpartAccountId": "550e8400-..."
-    }
-  }
-}
-Errores:
+5.8 GET /transfers/:id
+Descripción: Obtener una transferencia por ID, incluidas las canceladas.
 
-400: validación fallida.
+Auth: Sí.
 
-404: cuenta no encontrada.
+Response (200): `{ "data": Transfer }`.
 
-422: cuentas iguales o monedas distintas.
+404: transferencia no encontrada o no pertenece al usuario.
 
-Reglas de negocio:
+5.9 POST /transfers
+Descripción: Crear una transferencia confirmada entre dos cuentas del usuario.
 
-domain-rules.md sección 4: se crean dos movimientos enlazados con transferId compartido.
+Auth: Sí.
 
-domain-rules.md sección 4.3: las transferencias no cuentan como ingreso ni egreso.
+Body: `{ "originAccountId": "UUID", "destinationAccountId": "UUID", "amount": "500.00", "description": "Ahorro mensual", "date": "2026-10-15T10:00:00-05:00" }`.
 
-La pata origen usa `direction: "OUT"` y la pata destino usa `direction: "IN"`.
-Ambas patas quedan `CONFIRMED` y actualizan los saldos de sus cuentas.
+Validaciones: cuentas distintas, activas, del usuario y de la misma moneda; monto mayor a cero; fecha ISO 8601 no futura.
 
-Toda la operación en una transacción de BD.
+Response (201): `{ "data": Transfer }`.
 
-5.8 DELETE /transfers/:transferId
-Descripción: Eliminar (soft delete) ambas patas de una transferencia.
+Transfer: `{ "id": "UUID", "originAccountId": "UUID", "destinationAccountId": "UUID", "amount": "500.00", "currency": "PEN", "description": "Ahorro mensual", "occurredAt": "2026-10-15T15:00:00.000Z", "status": "CONFIRMED", "cancelledAt": null, "createdAt": "2026-10-15T15:00:00.000Z", "updatedAt": "2026-10-15T15:00:00.000Z" }`.
+
+400: validación fallida o cuenta archivada. 404: cuenta no encontrada. 422: cuentas iguales o monedas distintas.
+
+La fecha de entrada `date` se persiste como `occurredAt`. La transferencia se registra como una sola entidad y su efecto en el balance se deriva del ledger.
+
+5.10 PATCH /transfers/:id
+Descripción: Editar parcialmente una transferencia.
+
+Auth: Sí.
+
+Body: cualquier subconjunto de `originAccountId`, `destinationAccountId`, `amount`, `description` y `date`.
+
+Response (200): `{ "data": Transfer }`.
+
+409: transferencia cancelada. 404: transferencia o cuenta no encontrada. 422: cuentas iguales o monedas distintas.
+
+Solo se pueden editar transferencias `CONFIRMED`. El cambio se realiza de forma transaccional y actualiza la fuente del balance derivado.
+
+5.11 DELETE /transfers/:id
+Descripción: Cancelar una transferencia; no elimina el registro.
 
 Auth: Sí.
 
 Response (204): sin body.
 
-Errores:
+409: transferencia ya cancelada. 404: transferencia no encontrada o no pertenece al usuario.
 
-404: transferencia no encontrada.
-
-Reglas de negocio:
-
-domain-rules.md sección 4.4: se borran ambas patas por transferId.
-
-Solo se revierte el saldo y se eliminan ambas patas si existen exactamente dos
-movimientos activos y consistentes para el usuario y `transferId`; en caso
-contrario responde 404 sin modificar saldos. La edición bilateral se pospone
-(FIX-TRANSFER-03).
+El estado pasa de `CONFIRMED` a `CANCELLED` y se registra `cancelledAt`. El balance derivado deja de incluir la transferencia.
 
 ---
 
@@ -1118,10 +1099,12 @@ contrario responde 404 sin modificar saldos. La edición bilateral se pospone
 **Auth:** Sí.
 
 **Query params:**
+
 - `active` (opcional): `true` | `false`.
 - `includeDeleted` (opcional): `true`.
 
 **Response (200):**
+
 ```json
 {
   "data": [
@@ -2219,53 +2202,57 @@ Nota: este endpoint está fuera del prefijo /api/v1 (registrado directamente en 
 25	PATCH	/transactions/:id	Sí	—
 26	DELETE	/transactions/:id	Sí	—
 27	POST	/transactions/:id/restore	Sí	—
-28	POST	/transfers	Sí	—
-29	DELETE	/transfers/:transferId	Sí	—
-30	GET	/recurrences	Sí	No
-31	POST	/recurrences	Sí	—
-32	GET	/recurrences/:id	Sí	—
-33	PATCH	/recurrences/:id	Sí	—
-34	DELETE	/recurrences/:id	Sí	—
-35	POST	/recurrences/:id/restore	Sí	—
-36	PATCH	/recurrences/:id/toggle	Sí	—
-37	GET	/obligations	Sí	Sí
-38	GET	/obligations/upcoming	Sí	No
-39	POST	/obligations	Sí	—
-40	GET	/obligations/:id	Sí	—
-41	POST	/obligations/:id/pay	Sí	—
-42	PATCH	/obligations/:id	Sí	—
-43	DELETE	/obligations/:id	Sí	—
-44	POST	/obligations/:id/restore	Sí	—
-45	GET	/budgets	Sí	No
-46	POST	/budgets	Sí	—
-47	GET	/budgets/:id	Sí	—
-48	GET	/budgets/:id/usage	Sí	—
-49	PATCH	/budgets/:id	Sí	—
-50	DELETE	/budgets/:id	Sí	—
-51	POST	/budgets/:id/restore	Sí	—
-52	POST	/budgets/:id/copy	Sí	—
-53	GET	/savings-goals	Sí	No
-54	POST	/savings-goals	Sí	—
-55	GET	/savings-goals/:id	Sí	—
-56	PATCH	/savings-goals/:id	Sí	—
-57	DELETE	/savings-goals/:id	Sí	—
-58	POST	/savings-goals/:id/restore	Sí	—
-59	GET	/savings-goals/:goalId/contributions	Sí	No
-60	POST	/savings-goals/:goalId/contributions	Sí	—
-61	DELETE	/savings-goals/:goalId/contributions/:id	Sí	—
-62	POST	/savings-goals/:goalId/contributions/:id/restore	Sí	—
-63	GET	/tags	Sí	No
-64	POST	/tags	Sí	—
-65	PATCH	/tags/:id	Sí	—
-66	DELETE	/tags/:id	Sí	—
-67	POST	/tags/:id/restore	Sí	—
-68	GET	/notifications	Sí	Sí
-69	PATCH	/notifications/:id/read	Sí	—
-70	PATCH	/notifications/read-all	Sí	—
-71	GET	/health	No	—
-Total: 71 endpoints.
+28	GET	/transfers	Sí	Filtros y paginación
+29	GET	/transfers/:id	Sí	—
+30	POST	/transfers	Sí	Crear transferencia
+31	PATCH	/transfers/:id	Sí	Editar confirmada
+32	DELETE	/transfers/:id	Sí	Cancelar
+33	GET	/recurrences	Sí	No
+34	POST	/recurrences	Sí	—
+35	GET	/recurrences/:id	Sí	—
+36	PATCH	/recurrences/:id	Sí	—
+37	DELETE	/recurrences/:id	Sí	—
+38	POST	/recurrences/:id/restore	Sí	—
+39	PATCH	/recurrences/:id/toggle	Sí	—
+40	GET	/obligations	Sí	Sí
+41	GET	/obligations/upcoming	Sí	No
+42	POST	/obligations	Sí	—
+43	GET	/obligations/:id	Sí	—
+44	POST	/obligations/:id/pay	Sí	—
+45	PATCH	/obligations/:id	Sí	—
+46	DELETE	/obligations/:id	Sí	—
+47	POST	/obligations/:id/restore	Sí	—
+48	GET	/budgets	Sí	No
+49	POST	/budgets	Sí	—
+50	GET	/budgets/:id	Sí	—
+51	GET	/budgets/:id/usage	Sí	—
+52	PATCH	/budgets/:id	Sí	—
+53	DELETE	/budgets/:id	Sí	—
+54	POST	/budgets/:id/restore	Sí	—
+55	POST	/budgets/:id/copy	Sí	—
+56	GET	/savings-goals	Sí	No
+57	POST	/savings-goals	Sí	—
+58	GET	/savings-goals/:id	Sí	—
+59	PATCH	/savings-goals/:id	Sí	—
+60	DELETE	/savings-goals/:id	Sí	—
+61	POST	/savings-goals/:id/restore	Sí	—
+62	GET	/savings-goals/:goalId/contributions	Sí	No
+63	POST	/savings-goals/:goalId/contributions	Sí	—
+64	DELETE	/savings-goals/:goalId/contributions/:id	Sí	—
+65	POST	/savings-goals/:goalId/contributions/:id/restore	Sí	—
+66	GET	/tags	Sí	No
+67	POST	/tags	Sí	—
+68	PATCH	/tags/:id	Sí	—
+69	DELETE	/tags/:id	Sí	—
+70	POST	/tags/:id/restore	Sí	—
+71	GET	/notifications	Sí	Sí
+72	PATCH	/notifications/:id/read	Sí	—
+73	PATCH	/notifications/read-all	Sí	—
+74	GET	/health	No	—
+Total: 74 endpoints.
 
 15. Preguntas abiertas
 (Esta sección debe quedar vacía antes de cerrar el Sprint 1.)
 
 Sin preguntas abiertas por el momento.
+```

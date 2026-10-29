@@ -28,10 +28,6 @@ const transaction: Transaction = {
   description: 'Almuerzo',
   date: '2026-10-23T10:00:00.000Z',
   status: 'CONFIRMED',
-  direction: null,
-  transferId: null,
-  counterpartAccountId: null,
-  obligationId: null,
   createdAt: '2026-10-23T10:00:00.000Z',
   updatedAt: '2026-10-23T10:00:00.000Z',
 };

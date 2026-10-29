@@ -90,7 +90,7 @@ describe('Transactions DTOs', () => {
       const dto = plainToInstance(TransactionQueryDto, {
         page: '2',
         limit: '50',
-        type: 'TRANSFER',
+        type: 'EXPENSE',
         includeDeleted: 'true',
         from: '2026-10-01',
         to: '2026-10-31',
@@ -105,6 +105,7 @@ describe('Transactions DTOs', () => {
       { page: '0' },
       { limit: '101' },
       { limit: '1.5' },
+      { type: 'TRANSFER' },
       { includeDeleted: 'yes' },
       { from: '2026-13-50' },
     ])('rechaza filtros y paginación inválidos: %o', async (input) => {

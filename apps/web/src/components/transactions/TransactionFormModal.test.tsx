@@ -56,10 +56,6 @@ const existingTransaction: Transaction = {
   description: 'Compra',
   date: '2026-10-23T10:00:00.000Z',
   status: 'PENDING',
-  direction: null,
-  transferId: null,
-  counterpartAccountId: null,
-  obligationId: null,
   createdAt: '2026-10-23T10:00:00.000Z',
   updatedAt: '2026-10-23T10:00:00.000Z',
 };

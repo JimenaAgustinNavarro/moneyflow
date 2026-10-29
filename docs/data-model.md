@@ -16,7 +16,7 @@ Este documento describe el modelo de datos del MVP de MoneyFlow. Todas las tabla
 
 - **IDs:** `String @id @default(uuid())` (UUID v4).
 - **Timestamps:** `createdAt DateTime @default(now())` y `updatedAt DateTime @updatedAt`.
-- **Montos:** `Decimal @db.Decimal(12, 2)`. Nunca `Float`.
+- **Montos:** `Decimal @db.Decimal(19, 2)`. Nunca `Float`.
 - **Fechas:** `DateTime @db.Timestamptz(6)`.
 - **Soft delete:** se usa en entidades financieras (10 tablas). Los borrados son lógicos: `deletedAt = now()`. Hard delete solo en pivotes y datos efímeros.
 - **Enums:** definidos como `enum` de Prisma.
@@ -27,11 +27,12 @@ Este documento describe el modelo de datos del MVP de MoneyFlow. Todas las tabla
 
 ## 1. Diagrama entidad-relación
 
-```mermaid
+````mermaid
 erDiagram
     User ||--o{ Account : "tiene"
     User ||--o{ Category : "crea"
     User ||--o{ Transaction : "registra"
+    User ||--o{ Transfer : "registra"
     User ||--o{ Recurrence : "define"
     User ||--o{ Obligation : "tiene"
     User ||--o{ Budget : "define"
@@ -41,6 +42,7 @@ erDiagram
     User ||--o{ Notification : "recibe"
 
     Account ||--o{ Transaction : "afecta"
+    Account ||--o{ Transfer : "origen y destino"
     Account ||--o{ SavingsGoal : "asociada"
 
     Category ||--o{ Transaction : "clasifica"
@@ -87,8 +89,8 @@ userId	String	FK → users.id, onDelete: Cascade	Dueño
 name	String	—	Nombre visible
 type	AccountType	—	CASH, BANK, WALLET, CREDIT
 currency	String	@default("PEN")	ISO 4217
-initialBalance	Decimal	@db.Decimal(12, 2), @default(0)	Saldo inicial
-balance	Decimal	@db.Decimal(12, 2), @default(0)	Saldo persistido
+initialBalance	Decimal	@db.Decimal(19, 2), @default(0)	Saldo inicial
+initialBalanceAt	DateTime	@default(now())	Fecha inicial del saldo de apertura
 archived	Boolean	@default(false)	—
 createdAt	DateTime	@default(now())	—
 updatedAt	DateTime	@updatedAt	—
@@ -134,44 +136,55 @@ Map: @@map("categories").
 Enum CategoryType: INCOME, EXPENSE.
 
 2.4 transactions
-Propósito: movimientos de dinero (ingresos, egresos, transferencias).
+Propósito: movimientos de dinero de tipo ingreso o egreso.
 
 Columna	Tipo	Restricciones	Notas
 id	String	@id @default(uuid())	—
 userId	String	FK → users.id, onDelete: Cascade	Dueño
 accountId	String	FK → accounts.id, onDelete: Restrict	Cuenta afectada
-categoryId	String?	FK → categories.id, onDelete: SetNull	null en transferencias
-type	TransactionType	—	INCOME, EXPENSE, TRANSFER
-amount	Decimal	@db.Decimal(12, 2)	Positivo, > 0
+categoryId	String?	FK → categories.id, onDelete: SetNull	Categoría del movimiento
+type	TransactionType	—	INCOME, EXPENSE
+amount	Decimal	@db.Decimal(19, 2)	Positivo, > 0
 currency	String	@default("PEN")	ISO 4217
 description	String?	—	—
-date	DateTime	@db.Timestamptz(6)	Fecha del movimiento
+occurredAt	DateTime	@map("date") @db.Timestamptz(6)	Fecha del movimiento; la API expone `date`
 status	TransactionStatus	@default(CONFIRMED)	PENDING, CONFIRMED, CANCELLED
-direction	String?	@db.VarChar(10)	'IN'/'OUT' para transferencias; NULL para INCOME/EXPENSE
-transferId	String?	—	Agrupa las 2 patas de una transferencia
-counterpartAccountId	String?	FK → accounts.id, onDelete: SetNull	Cuenta destino en transferencias
-obligationId	String?	FK → obligations.id, onDelete: SetNull	Obligación pagada
 createdAt	DateTime	@default(now())	—
 updatedAt	DateTime	@updatedAt	—
 deletedAt	DateTime?	@db.Timestamptz(6) @map("deleted_at")	Soft delete
 Constraints:
 
-@@index([userId, date]).
+@@index([userId, occurredAt]).
 
-@@index([accountId, date]).
+@@index([accountId, occurredAt]).
 
-@@index([categoryId, date]).
-
-@@index([transferId]).
-
-@@index([obligationId]).
-
-CHECK: `direction IN ('IN', 'OUT') OR direction IS NULL` (agregado en la migración SQL).
+@@index([categoryId, occurredAt]).
 
 Map: @@map("transactions").
 
-Enum TransactionType: INCOME, EXPENSE, TRANSFER.
+Enum TransactionType: INCOME, EXPENSE.
 Enum TransactionStatus: PENDING, CONFIRMED, CANCELLED.
+
+2.4.1 transfers
+Propósito: una transferencia entre dos cuentas del mismo usuario, almacenada como una entidad propia y no como dos movimientos.
+
+Columna	Tipo	Restricciones	Notas
+id	String	@id @default(uuid())	UUID
+userId	String	FK → users.id, onDelete: Cascade	Dueño
+originAccountId	String	FK → accounts.id, onDelete: Restrict	Cuenta de salida
+destinationAccountId	String	FK → accounts.id, onDelete: Restrict	Cuenta de entrada
+amount	Decimal	@db.Decimal(19, 2)	Positivo, > 0
+currency	String	@default("PEN")	Moneda compartida por ambas cuentas
+description	String?	—	—
+occurredAt	DateTime	@db.Timestamptz(6)	Fecha de la transferencia
+status	TransferStatus	@default(CONFIRMED)	PENDING, CONFIRMED, CANCELLED
+cancelledAt	DateTime?	@db.Timestamptz(6)	Fecha de cancelación para auditoría
+createdAt	DateTime	@default(now())	—
+updatedAt	DateTime	@updatedAt	—
+
+Índices: `@@index([userId, occurredAt])`, `@@index([originAccountId, occurredAt])`, `@@index([destinationAccountId, occurredAt])` y `@@index([status, occurredAt])`.
+
+Map: `@@map("transfers")`. Enum `TransferStatus`: PENDING, CONFIRMED, CANCELLED. En el MVP, crear produce `CONFIRMED`; solo se permite la transición `CONFIRMED` a `CANCELLED`.
 
 2.5 recurrences
 Propósito: reglas de recurrencia para pagos recurrentes.
@@ -180,7 +193,7 @@ Columna	Tipo	Restricciones	Notas
 id	String	@id @default(uuid())	—
 userId	String	FK → users.id, onDelete: Cascade	Dueño
 name	String	—	Ej. "Luz"
-amount	Decimal	@db.Decimal(12, 2)	Monto esperado
+amount	Decimal	@db.Decimal(19, 2)	Monto esperado
 type	TransactionType	—	INCOME o EXPENSE
 categoryId	String?	FK → categories.id, onDelete: SetNull	—
 accountId	String?	FK → accounts.id, onDelete: SetNull	Cuenta sugerida
@@ -210,7 +223,7 @@ id	String	@id @default(uuid())	—
 userId	String	FK → users.id, onDelete: Cascade	Dueño
 recurrenceId	String?	FK → recurrences.id, onDelete: SetNull	null = puntual
 name	String	—	—
-amount	Decimal	@db.Decimal(12, 2)	—
+amount	Decimal	@db.Decimal(19, 2)	—
 dueDate	DateTime	@db.Timestamptz(6)	—
 status	ObligationStatus	@default(PENDING)	PENDING, PAID, OVERDUE, CANCELLED
 paidAt	DateTime?	@db.Timestamptz(6)	Fecha de pago
@@ -240,7 +253,7 @@ id	String	@id @default(uuid())	—
 userId	String	FK → users.id, onDelete: Cascade	Dueño
 name	String	—	—
 period	BudgetPeriod	—	WEEKLY, MONTHLY
-amount	Decimal	@db.Decimal(12, 2)	Límite
+amount	Decimal	@db.Decimal(19, 2)	Límite
 startDate	DateTime	@db.Timestamptz(6)	—
 endDate	DateTime?	@db.Timestamptz(6)	null = indefinido
 alertThreshold	Int	@default(80)	Porcentaje
@@ -282,8 +295,8 @@ Columna	Tipo	Restricciones	Notas
 id	String	@id @default(uuid())	—
 userId	String	FK → users.id, onDelete: Cascade	Dueño
 name	String	—	—
-targetAmount	Decimal	@db.Decimal(12, 2)	Monto objetivo
-currentAmount	Decimal	@db.Decimal(12, 2), @default(0)	Acumulado
+targetAmount	Decimal	@db.Decimal(19, 2)	Monto objetivo
+currentAmount	Decimal	@db.Decimal(19, 2), @default(0)	Acumulado
 targetDate	DateTime?	@db.Timestamptz(6)	Fecha límite
 accountId	String?	FK → accounts.id, onDelete: SetNull	Cuenta asociada
 status	GoalStatus	@default(ACTIVE)	ACTIVE, COMPLETED, CANCELLED
@@ -307,7 +320,7 @@ Columna	Tipo	Restricciones	Notas
 id	String	@id @default(uuid())	—
 goalId	String	FK → savings_goals.id, onDelete: Cascade	—
 transactionId	String?	FK → transactions.id, onDelete: SetNull	Movimiento vinculado
-amount	Decimal	@db.Decimal(12, 2)	Positivo
+amount	Decimal	@db.Decimal(19, 2)	Positivo
 type	ContributionType	—	DEPOSIT o WITHDRAWAL
 date	DateTime	@db.Timestamptz(6)	—
 createdAt	DateTime	@default(now())	—
@@ -416,7 +429,7 @@ Restrict: cuando el hijo no debe borrarse si el padre tiene dependencias (accoun
 SetNull: cuando el hijo puede quedar huérfano (categories en transactions).
 
 3.4 Montos
-Siempre Decimal @db.Decimal(12, 2). Nunca Float.
+Siempre Decimal @db.Decimal(19, 2). Nunca Float.
 
 Razón: precisión monetaria.
 
@@ -454,16 +467,17 @@ Mapeo: @map("user_id").
 2	accounts	Cuentas	5-10 por usuario
 3	categories	Categorías	20-50 por usuario
 4	transactions	Movimientos	100-1000 por mes por usuario
-5	recurrences	Recurrencias	5-20 por usuario
-6	obligations	Obligaciones	10-50 por mes por usuario
-7	budgets	Presupuestos	5-15 por usuario
-8	budget_categories	Pivote	N:M
-9	savings_goals	Metas	1-5 por usuario
-10	goal_contributions	Aportes	5-50 por meta
-11	tags	Etiquetas	5-20 por usuario
-12	transaction_tags	Pivote	N:M
-13	refresh_tokens	Refresh tokens	1-5 por usuario
-14	notifications	Notificaciones	10-100 por usuario
+5	transfers	Transferencias	0-100 por mes por usuario
+6	recurrences	Recurrencias	5-20 por usuario
+7	obligations	Obligaciones	10-50 por mes por usuario
+8	budgets	Presupuestos	5-15 por usuario
+9	budget_categories	Pivote	N:M
+10	savings_goals	Metas	1-5 por usuario
+11	goal_contributions	Aportes	5-50 por meta
+12	tags	Etiquetas	5-20 por usuario
+13	transaction_tags	Pivote	N:M
+14	refresh_tokens	Refresh tokens	1-5 por usuario
+15	notifications	Notificaciones	10-100 por usuario
 5. Preguntas abiertas
 (Esta sección debe quedar vacía antes de cerrar el Sprint 1.)
 
@@ -526,4 +540,4 @@ ALTER TABLE obligations
     OR
     (recurrence_id IS NOT NULL AND period_start IS NOT NULL)
   );
-```
+````

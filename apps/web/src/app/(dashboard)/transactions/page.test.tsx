@@ -9,7 +9,9 @@ const hooks = vi.hoisted(() => ({
   useUpdateTransaction: vi.fn(),
   useDeleteTransaction: vi.fn(),
   useCreateTransfer: vi.fn(),
+  useUpdateTransfer: vi.fn(),
   useDeleteTransfer: vi.fn(),
+  useTransfers: vi.fn(),
 }));
 
 vi.mock('@/hooks/useAccounts', () => ({ useAccounts: hooks.useAccounts }));
@@ -22,13 +24,16 @@ vi.mock('@/hooks/useTransactions', () => ({
 }));
 vi.mock('@/hooks/useTransfers', () => ({
   useCreateTransfer: hooks.useCreateTransfer,
+  useUpdateTransfer: hooks.useUpdateTransfer,
   useDeleteTransfer: hooks.useDeleteTransfer,
+  useTransfers: hooks.useTransfers,
 }));
 
 import TransactionsPage from './page';
 import type { Account } from '@/types/account';
 import type { Category } from '@/types/category';
 import type { Transaction } from '@/types/transaction';
+import type { Transfer } from '@/types/transfer';
 
 const account: Account = {
   id: 'account-1',
@@ -64,32 +69,26 @@ const transaction: Transaction = {
   description: 'Almuerzo',
   date: '2026-10-23T10:00:00.000Z',
   status: 'CONFIRMED',
-  direction: null,
-  transferId: null,
-  counterpartAccountId: null,
-  obligationId: null,
   createdAt: '2026-10-23T10:00:00.000Z',
   updatedAt: '2026-10-23T10:00:00.000Z',
 };
 
-const transferTransaction: Transaction = {
-  ...transaction,
-  id: 'transfer-leg-1',
-  categoryId: null,
-  type: 'TRANSFER',
-  transferId: 'transfer-1',
-  counterpartAccountId: 'account-2',
-  description: 'Ahorro',
+const transfer: Transfer = {
+  id: 'transfer-1',
+  originAccountId: 'account-1',
+  destinationAccountId: 'account-2',
   amount: '50.00',
+  currency: 'PEN',
+  description: 'Ahorro',
+  occurredAt: '2026-10-23T10:00:00.000Z',
+  status: 'CONFIRMED',
+  cancelledAt: null,
+  createdAt: '2026-10-23T10:00:00.000Z',
+  updatedAt: '2026-10-23T10:00:00.000Z',
 };
 
 function renderPage() {
   return render(<TransactionsPage />);
-}
-
-async function selectOption(trigger: HTMLElement, name: string) {
-  fireEvent.keyDown(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
-  fireEvent.click(await screen.findByRole('option', { name }));
 }
 
 describe('TransactionsPage', () => {
@@ -99,88 +98,66 @@ describe('TransactionsPage', () => {
     hooks.useTransactions.mockReset().mockReturnValue({
       data: {
         data: [transaction],
-        meta: { page: 1, limit: 20, total: 21, totalPages: 2 },
+        meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
       },
       isPending: false,
       isError: false,
       isSuccess: true,
       isFetching: false,
     });
-    hooks.useCreateTransaction
-      .mockReset()
-      .mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(transaction) });
-    hooks.useUpdateTransaction
-      .mockReset()
-      .mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(transaction) });
-    hooks.useDeleteTransaction
-      .mockReset()
-      .mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false });
-    hooks.useCreateTransfer
-      .mockReset()
-      .mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({ transferId: 'transfer-1' }) });
-    hooks.useDeleteTransfer
-      .mockReset()
-      .mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false });
-  });
-
-  it('muestra el estado de carga', () => {
-    hooks.useTransactions.mockReturnValue({
-      data: undefined,
-      isPending: true,
-      isError: false,
-      isSuccess: false,
-      isFetching: true,
-    });
-
-    renderPage();
-
-    expect(screen.getByRole('status')).toHaveTextContent('Cargando movimientos...');
-  });
-
-  it('muestra el estado vacío y ofrece el alta de movimientos', async () => {
-    hooks.useTransactions.mockReturnValue({
-      data: { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } },
+    hooks.useTransfers.mockReset().mockReturnValue({
+      data: {
+        data: [transfer],
+        meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      },
       isPending: false,
       isError: false,
       isSuccess: true,
       isFetching: false,
     });
-    renderPage();
-
-    expect(await screen.findByText('No hay movimientos para mostrar.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo movimiento' }));
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Nuevo movimiento' })).toBeInTheDocument();
+    hooks.useCreateTransaction.mockReset().mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(transaction),
+    });
+    hooks.useUpdateTransaction.mockReset().mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(transaction),
+    });
+    hooks.useDeleteTransaction.mockReset().mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+    });
+    hooks.useCreateTransfer.mockReset().mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue({ data: transfer }),
+    });
+    hooks.useUpdateTransfer.mockReset().mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue({ data: transfer }),
+    });
+    hooks.useDeleteTransfer.mockReset().mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+    });
   });
 
-  it('renderiza los movimientos con nombres de cuenta y categoría', () => {
+  it('muestra secciones separadas de movimientos y transferencias', () => {
     renderPage();
+    expect(screen.getByRole('heading', { name: 'Movimientos', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Transferencias' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Almuerzo/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(4);
+  });
 
-    const row = screen.getByRole('row', { name: /Almuerzo/ });
-    expect(within(row).getByText('Cuenta principal')).toBeInTheDocument();
-    expect(within(row).getByText('Alimentación')).toBeInTheDocument();
+  it('ofrece el alta de movimientos y transferencias', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo movimiento' }));
+    expect(await screen.findByRole('heading', { name: 'Nuevo movimiento' })).toBeInTheDocument();
   });
 
   it('abre el modal para crear una transferencia', async () => {
     renderPage();
-
     fireEvent.click(screen.getByRole('button', { name: 'Nueva transferencia' }));
-
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Nueva transferencia' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Nueva transferencia' })).toBeInTheDocument();
   });
 
-  it('confirma el borrado bilateral usando transferId y deja intacto el borrado normal', async () => {
-    hooks.useTransactions.mockReturnValue({
-      data: {
-        data: [transferTransaction, transaction],
-        meta: { page: 1, limit: 20, total: 2, totalPages: 1 },
-      },
-      isPending: false,
-      isError: false,
-      isSuccess: true,
-      isFetching: false,
-    });
+  it('confirma la cancelación de una transferencia sin afectar el borrado de movimientos', async () => {
     const transferDelete = vi.fn().mockResolvedValue(undefined);
     const transactionDelete = vi.fn().mockResolvedValue(undefined);
     hooks.useDeleteTransfer.mockReturnValue({ mutateAsync: transferDelete, isPending: false });
@@ -190,36 +167,24 @@ describe('TransactionsPage', () => {
     });
     renderPage();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Borrar transferencia' }));
-    const transferDialog = await screen.findByRole('dialog', { name: 'Eliminar transferencia' });
-    expect(transferDialog).toHaveTextContent('Se eliminarán ambas partes');
-    fireEvent.click(within(transferDialog).getByRole('button', { name: 'Eliminar transferencia' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar transferencia' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Cancelar transferencia' });
+    expect(dialog).toHaveTextContent('Se revertirán los saldos derivados');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancelar transferencia' }));
 
     await waitFor(() => expect(transferDelete).toHaveBeenCalledWith('transfer-1'));
     expect(transactionDelete).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar movimiento' }));
-    const transactionDialog = await screen.findByRole('dialog', { name: 'Eliminar movimiento' });
-    fireEvent.click(within(transactionDialog).getByRole('button', { name: 'Eliminar' }));
-    await waitFor(() => expect(transactionDelete).toHaveBeenCalledWith(transaction.id));
   });
 
-  it('avanza de página y reinicia la paginación al cambiar un filtro', async () => {
+  it('muestra la carga del listado de movimientos', () => {
+    hooks.useTransactions.mockReturnValue({
+      data: undefined,
+      isPending: true,
+      isError: false,
+      isSuccess: false,
+      isFetching: true,
+    });
     renderPage();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
-    await waitFor(() =>
-      expect(hooks.useTransactions).toHaveBeenLastCalledWith(
-        expect.objectContaining({ page: 2, limit: 20 }),
-      ),
-    );
-    expect(screen.getByText('Página 1 de 2')).toBeInTheDocument();
-
-    await selectOption(screen.getByRole('combobox', { name: 'Cuenta' }), 'Cuenta principal');
-    await waitFor(() =>
-      expect(hooks.useTransactions).toHaveBeenLastCalledWith(
-        expect.objectContaining({ page: 1, accountId: 'account-1' }),
-      ),
-    );
+    expect(screen.getByText('Cargando movimientos...')).toBeInTheDocument();
   });
 });

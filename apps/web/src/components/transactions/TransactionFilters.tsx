@@ -12,7 +12,11 @@ import {
 } from '@/components/ui/select';
 import type { Account } from '@/types/account';
 import type { Category } from '@/types/category';
-import type { TransactionFilters as Filters, TransactionStatus, TransactionType } from '@/types/transaction';
+import type {
+  TransactionFilters as Filters,
+  TransactionStatus,
+  TransactionType,
+} from '@/types/transaction';
 
 interface TransactionFiltersProps {
   filters: Filters;
@@ -23,7 +27,7 @@ interface TransactionFiltersProps {
 }
 
 function isTransactionType(value: string): value is TransactionType {
-  return value === 'INCOME' || value === 'EXPENSE' || value === 'TRANSFER';
+  return value === 'INCOME' || value === 'EXPENSE';
 }
 
 function isTransactionStatus(value: string): value is TransactionStatus {
@@ -98,7 +102,6 @@ export function TransactionFilters({
             <SelectItem value="__all__">Todos</SelectItem>
             <SelectItem value="INCOME">Ingreso</SelectItem>
             <SelectItem value="EXPENSE">Egreso</SelectItem>
-            <SelectItem value="TRANSFER">Transferencia</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -108,7 +111,9 @@ export function TransactionFilters({
         <Select
           value={filters.status ?? '__all__'}
           onValueChange={(value) =>
-            update({ status: value === '__all__' || !isTransactionStatus(value) ? undefined : value })
+            update({
+              status: value === '__all__' || !isTransactionStatus(value) ? undefined : value,
+            })
           }
         >
           <SelectTrigger id="filter-status" className="w-full">

@@ -1,3 +1,19 @@
+export type TransferStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+
+export interface Transfer {
+  id: string;
+  originAccountId: string;
+  destinationAccountId: string;
+  amount: string;
+  currency: string;
+  description: string | null;
+  occurredAt: string;
+  status: TransferStatus;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CreateTransferInput {
   originAccountId: string;
   destinationAccountId: string;
@@ -14,16 +30,11 @@ export interface UpdateTransferInput {
   date?: string;
 }
 
-export interface TransferLeg {
-  id: string;
-  accountId: string;
-  type: 'TRANSFER';
-  amount: string;
-  counterpartAccountId: string;
+export interface TransferListResponse {
+  data: Transfer[];
+  meta: { page: number; limit: number; total: number; totalPages: number };
 }
 
 export interface TransferResponse {
-  transferId: string;
-  origin: TransferLeg;
-  destination: TransferLeg;
+  data: Transfer;
 }

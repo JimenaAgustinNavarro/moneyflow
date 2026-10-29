@@ -64,6 +64,12 @@ describe('TransactionFilters', () => {
     expect(screen.getByLabelText('Hasta')).toHaveAttribute('type', 'date');
   });
 
+  it('no ofrece transferencias como tipo de movimiento', async () => {
+    renderFilters();
+    await selectOption(screen.getByRole('combobox', { name: 'Tipo' }), 'Todos');
+    expect(screen.queryByRole('option', { name: 'Transferencia' })).not.toBeInTheDocument();
+  });
+
   it('actualiza cuenta y tipo reiniciando la página a 1', async () => {
     const { onChange } = renderFilters();
 

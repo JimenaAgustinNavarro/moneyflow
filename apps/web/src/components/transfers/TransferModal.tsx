@@ -18,8 +18,7 @@ import {
 } from '@/components/ui/select';
 import { ApiError } from '@/lib/api-client';
 import type { Account } from '@/types/account';
-import type { Transaction } from '@/types/transaction';
-import type { CreateTransferInput, UpdateTransferInput } from '@/types/transfer';
+import type { CreateTransferInput, Transfer } from '@/types/transfer';
 
 const schema = z
   .object({
@@ -42,9 +41,9 @@ type FormData = z.infer<typeof schema>;
 interface TransferModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (input: CreateTransferInput | UpdateTransferInput) => Promise<void>;
+  onSubmit: (input: CreateTransferInput) => Promise<void>;
   accounts: Account[];
-  editing?: Transaction | null;
+  editing?: Transfer | null;
 }
 
 function getBrowserTimezone(): string {
@@ -128,13 +127,11 @@ export function TransferModal({ open, onClose, onSubmit, accounts, editing }: Tr
 
     const nextDefaults = editing
       ? {
-          originAccountId:
-            editing.direction === 'OUT' ? editing.accountId : editing.counterpartAccountId ?? '',
-          destinationAccountId:
-            editing.direction === 'IN' ? editing.accountId : editing.counterpartAccountId ?? '',
+          originAccountId: editing.originAccountId,
+          destinationAccountId: editing.destinationAccountId,
           amount: editing.amount,
           description: editing.description ?? '',
-          date: dateStringToInputValue(editing.date),
+          date: dateStringToInputValue(editing.occurredAt),
         }
       : {
           originAccountId: '',
@@ -152,7 +149,7 @@ export function TransferModal({ open, onClose, onSubmit, accounts, editing }: Tr
     setServerError(null);
     setIsSubmitting(true);
     try {
-      const payload: CreateTransferInput | UpdateTransferInput = {
+      const payload: CreateTransferInput = {
         originAccountId: data.originAccountId,
         destinationAccountId: data.destinationAccountId,
         amount: data.amount,
@@ -273,7 +270,13 @@ export function TransferModal({ open, onClose, onSubmit, accounts, editing }: Tr
               Cancelar
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (editing ? 'Guardando...' : 'Creando...') : editing ? 'Guardar cambios' : 'Crear transferencia'}
+              {isSubmitting
+                ? editing
+                  ? 'Guardando...'
+                  : 'Creando...'
+                : editing
+                  ? 'Guardar cambios'
+                  : 'Crear transferencia'}
             </Button>
           </div>
         </form>

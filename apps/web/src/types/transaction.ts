@@ -1,4 +1,4 @@
-export type TransactionType = 'INCOME' | 'EXPENSE' | 'TRANSFER';
+export type TransactionType = 'INCOME' | 'EXPENSE';
 export type TransactionStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED';
 
 export interface Transaction {
@@ -11,10 +11,6 @@ export interface Transaction {
   description: string | null;
   date: string;
   status: TransactionStatus;
-  direction: 'IN' | 'OUT' | null;
-  transferId: string | null;
-  counterpartAccountId: string | null;
-  obligationId: string | null;
   createdAt: string;
   updatedAt: string;
 }
