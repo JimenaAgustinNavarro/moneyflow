@@ -19,6 +19,7 @@ interface RecentTransaction {
   date: string;
   description: string | null;
   categoryId: string | null;
+  categoryName: string | null;
 }
 
 export interface DashboardSummary {
@@ -115,9 +116,13 @@ export class DashboardService {
     const categoryIds = categoryGroups.flatMap((group) =>
       group.categoryId === null ? [] : [group.categoryId],
     );
-    const categories = categoryIds.length
+    const recentCategoryIds = recentTransactions
+      .map((transaction) => transaction.categoryId)
+      .filter((id): id is string => id !== null);
+    const allCategoryIds = [...new Set([...categoryIds, ...recentCategoryIds])];
+    const categories = allCategoryIds.length
       ? await this.prisma.category.findMany({
-          where: { id: { in: categoryIds } },
+          where: { id: { in: allCategoryIds } },
           select: { id: true, name: true },
         })
       : [];
@@ -151,6 +156,9 @@ export class DashboardService {
         date: this.formatLimaIso(transaction.occurredAt),
         description: transaction.description,
         categoryId: transaction.categoryId,
+        categoryName: transaction.categoryId
+          ? (categoryNames.get(transaction.categoryId) ?? null)
+          : null,
       })),
       committedMoney: null,
       upcomingPayments: [],

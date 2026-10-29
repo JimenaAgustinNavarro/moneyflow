@@ -141,6 +141,44 @@ describe('DashboardService', () => {
     );
   });
 
+  it('incluye el nombre cuando un movimiento reciente tiene categoría', async () => {
+    prisma.transaction.findMany.mockResolvedValue([makeTransaction({ categoryId: 'category-1' })]);
+    prisma.category.findMany.mockResolvedValue([{ id: 'category-1', name: 'Alimentación' }]);
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.recentTransactions[0]).toMatchObject({
+      categoryId: 'category-1',
+      categoryName: 'Alimentación',
+    });
+  });
+
+  it('devuelve categoryName null cuando el movimiento no tiene categoría', async () => {
+    prisma.transaction.findMany.mockResolvedValue([makeTransaction({ categoryId: null })]);
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.recentTransactions[0]).toMatchObject({
+      categoryId: null,
+      categoryName: null,
+    });
+    expect(prisma.category.findMany).not.toHaveBeenCalled();
+  });
+
+  it('devuelve categoryName null cuando no encuentra la categoría relacionada', async () => {
+    prisma.transaction.findMany.mockResolvedValue([
+      makeTransaction({ categoryId: 'missing-category' }),
+    ]);
+    prisma.category.findMany.mockResolvedValue([]);
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.recentTransactions[0]).toMatchObject({
+      categoryId: 'missing-category',
+      categoryName: null,
+    });
+  });
+
   it('deriva el balance de cuentas, movimientos y transferencias confirmadas', async () => {
     prisma.account.findMany.mockResolvedValue([account]);
     prisma.transaction.findMany

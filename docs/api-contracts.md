@@ -1328,7 +1328,8 @@ Las obligaciones PENDING existentes se conservan.
         "currency": "PEN",
         "date": "2026-10-28T12:30:00.000-05:00",
         "description": "Almuerzo",
-        "categoryId": "550e8400-..."
+        "categoryId": "550e8400-...",
+        "categoryName": "Alimentación"
       }
     ],
     "committedMoney": null,
@@ -1346,6 +1347,8 @@ movimientos se devuelven en `America/Lima` con offset `-05:00`.
 
 `committedMoney`, `upcomingPayments` y `topBudgets` permanecen vacíos (`null` o `[]`) hasta
 implementar obligaciones y presupuestos en Sprint 5.
+`categoryName` es `null` si el movimiento no tiene una categoría asociada o si no se encuentra
+su registro de categoría.
 
 **Errores:**
 
