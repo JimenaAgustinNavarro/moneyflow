@@ -3,6 +3,7 @@
 import {
   ArrowLeftRight,
   LayoutDashboard,
+  ListTodo,
   PiggyBank,
   Repeat2,
   Settings,
@@ -20,6 +21,7 @@ const navigationItems = [
   { href: '/categories', label: 'Categorías', icon: Tag, enabled: true },
   { href: '/transactions', label: 'Movimientos', icon: ArrowLeftRight, enabled: true },
   { href: '/recurrences', label: 'Recurrencias', icon: Repeat2, enabled: true },
+  { href: '/obligations', label: 'Obligaciones', icon: ListTodo, enabled: true },
   { href: '/budgets', label: 'Presupuestos', icon: PiggyBank, enabled: false },
   { href: '/savings-goals', label: 'Metas', icon: Target, enabled: false },
   { href: '/settings', label: 'Configuración', icon: Settings, enabled: false },

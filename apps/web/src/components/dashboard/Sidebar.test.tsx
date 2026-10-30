@@ -24,6 +24,10 @@ describe('Sidebar', () => {
       'href',
       '/recurrences',
     );
+    expect(screen.getByRole('link', { name: 'Obligaciones' })).toHaveAttribute(
+      'href',
+      '/obligations',
+    );
 
     for (const label of ['Presupuestos', 'Metas', 'Configuración']) {
       expect(screen.getByLabelText(label)).toHaveAttribute('aria-disabled', 'true');
@@ -34,7 +38,7 @@ describe('Sidebar', () => {
   it('proporciona nombres y títulos accesibles en los enlaces habilitados', () => {
     render(<Sidebar />);
 
-    for (const label of ['Dashboard', 'Cuentas', 'Categorías', 'Movimientos', 'Recurrencias']) {
+    for (const label of ['Dashboard', 'Cuentas', 'Categorías', 'Movimientos', 'Recurrencias', 'Obligaciones']) {
       const link = screen.getByRole('link', { name: label });
       expect(link).toHaveAttribute('aria-label', label);
       expect(link).toHaveAttribute('title', label);

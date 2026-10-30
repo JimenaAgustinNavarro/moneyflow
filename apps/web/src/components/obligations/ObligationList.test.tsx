@@ -1,0 +1,12 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
+import type { Obligation } from '@/types/obligation';
+import { ObligationList } from './ObligationList';
+
+const obligation: Obligation = { id: 'obligation-1', userId: 'user-1', recurrenceId: null, accountId: 'account-1', accountName: 'Cuenta principal', categoryId: null, categoryName: null, name: 'Luz', type: 'EXPENSE', amount: '100.00', currency: 'PEN', description: null, dueDate: '2026-11-01T00:00:00-05:00', status: 'PENDING', periodStart: null, periodEnd: null, paidAt: null, cancelledAt: null, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', deletedAt: null, payments: [] };
+describe('ObligationList', () => {
+  it('muestra vacío y carga', () => { const props = { obligations: [], onEdit: vi.fn(), onPay: vi.fn(), onDelete: vi.fn(), onRestore: vi.fn() }; const { rerender } = render(<ObligationList {...props} />); expect(screen.getByText(/No hay obligaciones/)).toBeInTheDocument(); rerender(<ObligationList {...props} isLoading />); expect(screen.getByText('Cargando obligaciones...')).toBeInTheDocument(); });
+  it('renderiza estados y acciones', async () => { const user = userEvent.setup(); const onEdit = vi.fn(); const onPay = vi.fn(); const onDelete = vi.fn(); render(<ObligationList obligations={[obligation]} onEdit={onEdit} onPay={onPay} onDelete={onDelete} onRestore={vi.fn()} />); expect(screen.getByText('Pendiente')).toBeInTheDocument(); expect(screen.getByText('Cuenta principal')).toBeInTheDocument(); await user.click(screen.getByRole('button', { name: 'Pagar Luz' })); await user.click(screen.getByRole('button', { name: 'Editar Luz' })); await user.click(screen.getByRole('button', { name: 'Cancelar Luz' })); expect(onPay).toHaveBeenCalledWith(obligation); expect(onEdit).toHaveBeenCalledWith(obligation); expect(onDelete).toHaveBeenCalledWith(obligation); });
+  it('permite restaurar eliminadas', async () => { const user = userEvent.setup(); const onRestore = vi.fn(); render(<ObligationList obligations={[{ ...obligation, deletedAt: '2026-01-02T00:00:00Z' }]} onEdit={vi.fn()} onPay={vi.fn()} onDelete={vi.fn()} onRestore={onRestore} />); await user.click(screen.getByRole('button', { name: 'Restaurar Luz' })); expect(onRestore).toHaveBeenCalledWith(expect.objectContaining({ id: 'obligation-1' })); });
+});
