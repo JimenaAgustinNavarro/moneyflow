@@ -57,6 +57,8 @@ export class ObligationsService {
 
   private serialize(obligation: Prisma.ObligationGetPayload<Record<string, never>> & {
     payments?: Prisma.ObligationPaymentGetPayload<Record<string, never>>[];
+    account?: { name: string } | null;
+    category?: { name: string } | null;
   }) {
     const status = this.calculateOverdue(obligation);
     return {
@@ -64,7 +66,9 @@ export class ObligationsService {
       userId: obligation.userId,
       recurrenceId: obligation.recurrenceId,
       accountId: obligation.accountId,
+      accountName: obligation.account?.name ?? null,
       categoryId: obligation.categoryId,
+      categoryName: obligation.category?.name ?? null,
       name: obligation.name,
       type: obligation.type,
       amount: obligation.amount.toFixed(2),
@@ -131,6 +135,10 @@ export class ObligationsService {
       await this.validateCategory(tx, userId, dto.categoryId, dto.type);
       await this.validateRecurrence(tx, userId, dto.recurrenceId);
       const obligation = await tx.obligation.create({
+        include: {
+          account: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true } },
+        },
         data: {
           userId,
           recurrenceId: dto.recurrenceId ?? null,
@@ -167,7 +175,14 @@ export class ObligationsService {
         dueDate: { lt: new Date() },
       }),
     };
-    const obligations = await this.prisma.obligation.findMany({ where, orderBy: { dueDate: 'asc' } });
+    const obligations = await this.prisma.obligation.findMany({
+      where,
+      include: {
+        account: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+      },
+      orderBy: { dueDate: 'asc' },
+    });
     return { data: obligations.map((obligation) => this.serialize(obligation)) };
   }
 
@@ -178,6 +193,10 @@ export class ObligationsService {
         deletedAt: null,
         status: { in: [ObligationStatus.PENDING, ObligationStatus.PARTIALLY_PAID] },
       },
+      include: {
+        account: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+      },
       orderBy: { dueDate: 'asc' },
       take: 5,
     });
@@ -187,7 +206,11 @@ export class ObligationsService {
   async findOne(userId: string, id: string) {
     const obligation = await this.prisma.obligation.findFirst({
       where: { id, userId, deletedAt: null },
-      include: { payments: true },
+      include: {
+        payments: true,
+        account: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+      },
     });
     if (!obligation) throw new NotFoundException('Obligación no encontrada.');
     return this.serialize(obligation);
@@ -195,7 +218,14 @@ export class ObligationsService {
 
   async pay(userId: string, id: string, dto: PayObligationDto) {
     return this.prisma.$transaction(async (tx) => {
-      const obligation = await tx.obligation.findFirst({ where: { id, userId }, include: { payments: true } });
+      const obligation = await tx.obligation.findFirst({
+        where: { id, userId },
+        include: {
+          payments: true,
+          account: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true } },
+        },
+      });
       if (!obligation) throw new NotFoundException('Obligación no encontrada.');
       if (
         obligation.status === ObligationStatus.PAID ||
@@ -239,6 +269,10 @@ export class ObligationsService {
       const updated = await tx.obligation.update({
         where: { id: obligation.id },
         data: { status, paidAt: status === ObligationStatus.PAID ? paidAt : null },
+        include: {
+          account: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true } },
+        },
       });
       return this.serialize(updated);
     });
@@ -269,6 +303,10 @@ export class ObligationsService {
           ...(dto.periodStart !== undefined && { periodStart: dto.periodStart ? this.validateDate(dto.periodStart) : null }),
           ...(dto.periodEnd !== undefined && { periodEnd: dto.periodEnd ? this.validateDate(dto.periodEnd) : null }),
         },
+        include: {
+          account: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true } },
+        },
       });
       return this.serialize(updated);
     });
@@ -289,6 +327,10 @@ export class ObligationsService {
     const restored = await this.prisma.obligation.update({
       where: { id },
       data: { deletedAt: null, status: ObligationStatus.PENDING, paidAt: null, cancelledAt: null },
+      include: {
+        account: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+      },
     });
     return this.serialize(restored);
   }

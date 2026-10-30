@@ -1292,13 +1292,15 @@ amount es opcional; si se omite se paga el saldo restante. accountId es obligato
 ### Filtros
 status, from, to, overdue, recurrenceId, accountId, categoryId e includeDeleted. No existe paginacion. Las fechas usan ISO 8601 y hora Lima -05:00.
 
+Las respuestas de obligación incluyen `accountId`, `accountName`, `categoryId` y `categoryName`. Los nombres se devuelven como `null` cuando la cuenta o categoría asociada no existe.
+
 OVERDUE se calcula on-the-fly. ObligationStatus: PENDING, PARTIALLY_PAID, PAID, OVERDUE, CANCELLED.
 
 Errores: 400 monto invalido o excedente; 401 token ausente o invalido; 404 recurso inexistente o ajeno; 409 pagada o cancelada.
 
 8. Módulo Budgets (/budgets)
 8.1 GET /budgets
-Lista presupuestos del usuario. Query params: status (UNDER_LIMIT | NEAR_LIMIT | OVER_LIMIT), active (true | false) e includeDeleted (true). No hay paginacion. Respuesta: { data: [{ id, name, limit, currency, periodType, startDate, endDate, alertThreshold, active, status, categories, createdAt, updatedAt, deletedAt }] }. Errores 401.
+Lista presupuestos del usuario. Query params: status (UNDER_LIMIT | NEAR_LIMIT | OVER_LIMIT), active (true | false) e includeDeleted (true). No hay paginacion. Respuesta: { data: [{ id, name, limit, currency, periodType, startDate, endDate, alertThreshold, active, status, categories: [{ id, name, type }], createdAt, updatedAt, deletedAt }] }. `categories` contiene las categorías activas del presupuesto con sus nombres y tipos. Errores 401.
 
 8.2 POST /budgets
 Body: name (1-255), limit decimal mayor que cero, currency opcional AAA (default PEN), periodType (WEEKLY | MONTHLY | QUARTERLY | YEARLY), startDate ISO Lima, endDate opcional, categoryIds UUID[] no vacio y alertThreshold opcional 1-100 (default 80). Respuesta 201. Errores 400 y 404.

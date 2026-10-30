@@ -9,6 +9,7 @@ const obligation = (overrides: Record<string, unknown> = {}) => ({
   dueDate: new Date('2026-12-01T05:00:00.000Z'), status: ObligationStatus.PENDING,
   periodStart: null, periodEnd: null, paidAt: null, cancelledAt: null,
   createdAt: new Date(), updatedAt: new Date(), deletedAt: null, payments: [],
+  account: { id: 'account-1', name: 'Cuenta principal' }, category: null,
   ...overrides,
 }) as never;
 
@@ -51,6 +52,18 @@ describe('ObligationsService', () => {
     await expect(service.findAll('user-1', { status: ObligationStatus.PENDING })).resolves.toEqual(expect.objectContaining({ data: expect.any(Array) }));
     await expect(service.upcoming('user-1')).resolves.toEqual(expect.objectContaining({ data: expect.any(Array) }));
     expect(prisma.obligation.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 5 }));
+  });
+
+  it('serializa los nombres de cuenta y categoría, incluyendo relaciones nulas', async () => {
+    prisma.obligation.findMany.mockResolvedValue([
+      obligation(),
+      obligation({ id: 'obligation-2', account: { id: 'account-1', name: 'Cuenta principal' }, category: { id: 'category-1', name: 'Servicios' } }),
+    ]);
+
+    const result = await service.findAll('user-1', {} as never);
+
+    expect(result.data[0]).toEqual(expect.objectContaining({ accountName: 'Cuenta principal', categoryName: null }));
+    expect(result.data[1]).toEqual(expect.objectContaining({ accountName: 'Cuenta principal', categoryName: 'Servicios' }));
   });
 
   it('marca pago parcial y total', async () => {
