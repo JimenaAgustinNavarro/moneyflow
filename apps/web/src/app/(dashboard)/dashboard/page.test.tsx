@@ -55,7 +55,7 @@ const summary: DashboardSummary = {
       categoryName: 'Alimentación',
     },
   ],
-  committedMoney: null,
+  committedMoney: '0.00',
   upcomingPayments: [],
   topBudgets: [],
 };
@@ -96,6 +96,9 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Ingresos del período')).toBeInTheDocument();
     expect(screen.getByText('Egresos del período')).toBeInTheDocument();
     expect(screen.getByText('Flujo neto')).toBeInTheDocument();
+    expect(screen.getByText('Comprometido')).toBeInTheDocument();
+    expect(screen.getByText('Próximos pagos')).toBeInTheDocument();
+    expect(screen.getByText('Presupuestos')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mes actual' })).toHaveAttribute(
       'aria-pressed',
       'true',

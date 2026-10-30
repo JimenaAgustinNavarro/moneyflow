@@ -5,10 +5,13 @@ import { useState } from 'react';
 import { AccountFilter } from '@/components/dashboard/AccountFilter';
 import { CashFlowChart } from '@/components/dashboard/CashFlowChart';
 import { CategoryChart } from '@/components/dashboard/CategoryChart';
+import { CommittedMoneyCard } from '@/components/dashboard/CommittedMoneyCard';
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { SummaryCards } from '@/components/dashboard/SummaryCards';
+import { TopBudgets } from '@/components/dashboard/TopBudgets';
+import { UpcomingPayments } from '@/components/dashboard/UpcomingPayments';
 import { useDashboardSummary } from '@/hooks/useDashboardSummary';
 import type { DashboardFilters } from '@/types/dashboard';
 
@@ -47,6 +50,22 @@ export default function DashboardPage() {
       )}
 
       <SummaryCards summary={query.data} isLoading={query.isLoading} />
+
+      <CommittedMoneyCard
+        committedMoney={query.data?.committedMoney}
+        isLoading={query.isLoading}
+      />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <UpcomingPayments
+          payments={query.data?.upcomingPayments ?? []}
+          isLoading={query.isLoading}
+        />
+        <TopBudgets
+          budgets={query.data?.topBudgets ?? []}
+          isLoading={query.isLoading}
+        />
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* FIX-DASHBOARD-05: el endpoint todavía no expone una serie temporal. */}

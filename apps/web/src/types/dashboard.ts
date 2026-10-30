@@ -1,3 +1,5 @@
+import type { BudgetPeriod, BudgetStatus } from '@/types/budget';
+
 export type DashboardPeriod = 'month' | 'last_month' | 'last_3_months' | 'custom';
 
 export interface DashboardPeriodRange {
@@ -25,6 +27,31 @@ export interface RecentTransaction {
   categoryName: string | null;
 }
 
+export interface UpcomingPayment {
+  id: string;
+  name: string;
+  amount: string;
+  currency: string;
+  dueDate: string;
+  status: 'PENDING' | 'PARTIALLY_PAID' | 'OVERDUE';
+  accountName: string;
+  categoryName: string | null;
+}
+
+export interface TopBudget {
+  id: string;
+  name: string;
+  limit: string;
+  currency: string;
+  periodType: BudgetPeriod;
+  startDate: string;
+  endDate: string | null;
+  spent: string;
+  percentage: number;
+  status: BudgetStatus;
+  alertThreshold: number;
+}
+
 export interface DashboardSummary {
   period: DashboardPeriodRange;
   totalBalance: string;
@@ -33,9 +60,9 @@ export interface DashboardSummary {
   netFlow: string;
   topCategories: TopCategory[];
   recentTransactions: RecentTransaction[];
-  committedMoney: null;
-  upcomingPayments: [];
-  topBudgets: [];
+  committedMoney: string;
+  upcomingPayments: UpcomingPayment[];
+  topBudgets: TopBudget[];
 }
 
 export interface DashboardFilters {
