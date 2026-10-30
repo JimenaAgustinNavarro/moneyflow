@@ -30,8 +30,26 @@ describe('BudgetsService', () => {
 
   it('crea presupuesto con dos categorías válidas', async () => {
     tx.category.findMany.mockResolvedValue([{ id: 'cat-1', type: TransactionType.EXPENSE }, { id: 'cat-2', type: TransactionType.EXPENSE }]);
-    tx.budget.create.mockImplementation(({ data }: { data: Record<string, unknown> }) => Promise.resolve(budget(data)));
-    await expect(service.create('user-1', { name: 'Comida', limit: '100', periodType: 'MONTHLY', startDate: '2026-10-01T00:00:00-05:00', categoryIds: ['cat-1', 'cat-2'] } as never)).resolves.toEqual(expect.objectContaining({ limit: '100.00' }));
+    tx.budget.create.mockImplementation(({ data }: { data: Record<string, unknown> }) => Promise.resolve(budget({ ...data, categories: [
+      { id: 'relation-1', categoryId: 'cat-1', deletedAt: null, category: { id: 'cat-1', name: 'Comida', type: TransactionType.EXPENSE } },
+    ] })));
+    await expect(service.create('user-1', { name: 'Comida', limit: '100', periodType: 'MONTHLY', startDate: '2026-10-01T00:00:00-05:00', categoryIds: ['cat-1', 'cat-2'] } as never)).resolves.toEqual(expect.objectContaining({
+      limit: '100.00',
+      categories: [{ id: 'cat-1', name: 'Comida', type: TransactionType.EXPENSE }],
+    }));
+  });
+
+  it('serializa solo categorías de relaciones activas', async () => {
+    tx.category.findMany.mockResolvedValue([{ id: 'cat-1', type: TransactionType.EXPENSE }, { id: 'cat-2', type: TransactionType.EXPENSE }]);
+    tx.budget.create.mockResolvedValue(budget({
+      categories: [
+        { deletedAt: null, category: { id: 'cat-1', name: 'Comida', type: TransactionType.EXPENSE } },
+        { deletedAt: new Date(), category: { id: 'cat-2', name: 'Eliminada', type: TransactionType.EXPENSE } },
+        { deletedAt: null, category: null },
+      ],
+    }));
+    const result = await service.create('user-1', { name: 'Comida', limit: '100', periodType: 'MONTHLY', startDate: '2026-10-01T00:00:00-05:00', categoryIds: ['cat-1', 'cat-2'] } as never);
+    expect(result.categories).toEqual([{ id: 'cat-1', name: 'Comida', type: TransactionType.EXPENSE }]);
   });
 
   it('rechaza categorías vacías, ajenas y de ingreso', async () => {
@@ -78,8 +96,13 @@ describe('BudgetsService', () => {
 
   it('copia presupuesto y categorías activas', async () => {
     tx.budget.findFirst.mockResolvedValue(budget({ categories: [{ categoryId: 'cat-1', deletedAt: null }] }));
-    tx.budget.create.mockImplementation(({ data }: { data: Record<string, unknown> }) => Promise.resolve(budget(data)));
-    await expect(service.copy('user-1', 'budget-1', { startDate: '2026-11-01T00:00:00-05:00' })).resolves.toEqual(expect.objectContaining({ id: 'budget-1' }));
+    tx.budget.create.mockImplementation(({ data }: { data: Record<string, unknown> }) => Promise.resolve(budget({ ...data, categories: [
+      { deletedAt: null, category: { id: 'cat-1', name: 'Comida', type: TransactionType.EXPENSE } },
+    ] })));
+    await expect(service.copy('user-1', 'budget-1', { startDate: '2026-11-01T00:00:00-05:00' })).resolves.toEqual(expect.objectContaining({
+      id: 'budget-1',
+      categories: [{ id: 'cat-1', name: 'Comida', type: TransactionType.EXPENSE }],
+    }));
   });
 
   it('actualiza relaciones, elimina y restaura presupuesto', async () => {

@@ -1300,7 +1300,7 @@ Errores: 400 monto invalido o excedente; 401 token ausente o invalido; 404 recur
 
 8. Módulo Budgets (/budgets)
 8.1 GET /budgets
-Lista presupuestos del usuario. Query params: status (UNDER_LIMIT | NEAR_LIMIT | OVER_LIMIT), active (true | false) e includeDeleted (true). No hay paginacion. Respuesta: { data: [{ id, name, limit, currency, periodType, startDate, endDate, alertThreshold, active, status, categories: [{ id, name, type }], createdAt, updatedAt, deletedAt }] }. `categories` contiene las categorías activas del presupuesto con sus nombres y tipos. Errores 401.
+Lista presupuestos del usuario. Query params: status (UNDER_LIMIT | NEAR_LIMIT | OVER_LIMIT), active (true | false) e includeDeleted (true). No hay paginacion. Ejemplo de respuesta: { data: [{ id, name, limit, currency, periodType, startDate, endDate, alertThreshold, active, status, categories: [{ id: "550e8400-e29b-41d4-a716-446655440000", name: "Comida", type: "EXPENSE" }], createdAt, updatedAt, deletedAt }] }. `categories` contiene las categorías activas del presupuesto con sus identificadores, nombres y tipos. Errores 401.
 
 8.2 POST /budgets
 Body: name (1-255), limit decimal mayor que cero, currency opcional AAA (default PEN), periodType (WEEKLY | MONTHLY | QUARTERLY | YEARLY), startDate ISO Lima, endDate opcional, categoryIds UUID[] no vacio y alertThreshold opcional 1-100 (default 80). Respuesta 201. Errores 400 y 404.

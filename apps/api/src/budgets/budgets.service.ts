@@ -42,6 +42,11 @@ export class BudgetsService {
     id: string; name: string; amount: Prisma.Decimal; currency: string; period: string;
     startDate: Date; endDate: Date | null; alertThreshold: number; active: boolean;
     createdAt: Date; updatedAt: Date; deletedAt: Date | null;
+    categories?: Array<{
+      deletedAt?: Date | null;
+      categoryId?: string;
+      category: { id: string; name: string; type: string } | null;
+    }>;
   }) {
     return {
       id: budget.id,
@@ -54,6 +59,13 @@ export class BudgetsService {
       alertThreshold: budget.alertThreshold,
       active: budget.active,
       status: BudgetStatus.UNDER_LIMIT,
+      categories: (Array.isArray(budget.categories) ? budget.categories : [])
+        .filter((relation) => relation.deletedAt == null && relation.category != null)
+        .map((relation) => ({
+          id: relation.category!.id,
+          name: relation.category!.name,
+          type: relation.category!.type,
+        })),
       createdAt: budget.createdAt.toISOString(),
       updatedAt: budget.updatedAt.toISOString(),
       deletedAt: budget.deletedAt?.toISOString() ?? null,
@@ -116,6 +128,12 @@ export class BudgetsService {
           alertThreshold: dto.alertThreshold ?? 80,
           categories: { create: dto.categoryIds.map((categoryId) => ({ categoryId })) },
         },
+        include: {
+          categories: {
+            where: { deletedAt: null },
+            include: { category: { select: { id: true, name: true, type: true } } },
+          },
+        },
       });
       return this.serialize(budget);
     });
@@ -129,14 +147,19 @@ export class BudgetsService {
     };
     const budgets = await this.prisma.budget.findMany({
       where,
-      include: { categories: { where: { deletedAt: null }, include: { category: true } } },
+      include: {
+        categories: {
+          where: { deletedAt: null },
+          include: { category: { select: { id: true, name: true, type: true } } },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
     const serialized = await Promise.all(budgets.map(async (budget) => {
       const categoryIds = budget.categories.map((relation) => relation.categoryId);
       const spent = await this.calculateSpent(this.prisma, userId, categoryIds, budget.startDate, budget.endDate);
       const percentage = spent.div(budget.amount).mul(100).toNumber();
-      return { ...this.serialize(budget), status: this.calculateStatus(percentage, budget.alertThreshold), categories: budget.categories.map((relation) => ({ id: relation.categoryId, name: relation.category.name, type: relation.category.type })) };
+      return { ...this.serialize(budget), status: this.calculateStatus(percentage, budget.alertThreshold) };
     }));
     return { data: query.status ? serialized.filter((budget) => budget.status === query.status) : serialized };
   }
@@ -144,10 +167,15 @@ export class BudgetsService {
   async findOne(userId: string, id: string) {
     const budget = await this.prisma.budget.findFirst({
       where: { id, userId, deletedAt: null },
-      include: { categories: { where: { deletedAt: null }, include: { category: true } } },
+      include: {
+        categories: {
+          where: { deletedAt: null },
+          include: { category: { select: { id: true, name: true, type: true } } },
+        },
+      },
     });
     if (!budget) throw new NotFoundException('Presupuesto no encontrado.');
-    return { ...this.serialize(budget), categories: budget.categories.map((relation) => ({ id: relation.categoryId, name: relation.category.name, type: relation.category.type })) };
+    return this.serialize(budget);
   }
 
   async usage(userId: string, id: string) {
@@ -166,7 +194,15 @@ export class BudgetsService {
   async copy(userId: string, id: string, dto: CopyBudgetDto) {
     const { start, end } = this.validateBudgetRange(dto.startDate, dto.endDate);
     return this.prisma.$transaction(async (tx) => {
-      const original = await tx.budget.findFirst({ where: { id, userId, deletedAt: null }, include: { categories: { where: { deletedAt: null } } } });
+      const original = await tx.budget.findFirst({
+        where: { id, userId, deletedAt: null },
+        include: {
+          categories: {
+            where: { deletedAt: null },
+            include: { category: { select: { id: true, name: true, type: true } } },
+          },
+        },
+      });
       if (!original) throw new NotFoundException('Presupuesto no encontrado.');
       const budget = await tx.budget.create({
         data: {
@@ -181,6 +217,12 @@ export class BudgetsService {
           active: original.active,
           categories: { create: original.categories.map((relation) => ({ categoryId: relation.categoryId })) },
         },
+        include: {
+          categories: {
+            where: { deletedAt: null },
+            include: { category: { select: { id: true, name: true, type: true } } },
+          },
+        },
       });
       return this.serialize(budget);
     });
@@ -188,7 +230,14 @@ export class BudgetsService {
 
   async update(userId: string, id: string, dto: UpdateBudgetDto) {
     return this.prisma.$transaction(async (tx) => {
-      const current = await tx.budget.findFirst({ where: { id, userId, deletedAt: null }, include: { categories: true } });
+      const current = await tx.budget.findFirst({
+        where: { id, userId, deletedAt: null },
+        include: {
+          categories: {
+            include: { category: { select: { id: true, name: true, type: true } } },
+          },
+        },
+      });
       if (!current) throw new NotFoundException('Presupuesto no encontrado.');
       if (dto.categoryIds) await this.validateCategories(tx, userId, dto.categoryIds, TransactionType.EXPENSE);
       const start = dto.startDate ? this.parseDate(dto.startDate) : current.startDate;
@@ -213,6 +262,12 @@ export class BudgetsService {
           ...(dto.endDate !== undefined && { endDate: end }),
           ...(dto.alertThreshold !== undefined && { alertThreshold: dto.alertThreshold }),
         },
+        include: {
+          categories: {
+            where: { deletedAt: null },
+            include: { category: { select: { id: true, name: true, type: true } } },
+          },
+        },
       });
       return this.serialize(budget);
     });
@@ -233,7 +288,17 @@ export class BudgetsService {
       if (!budget) throw new NotFoundException('Presupuesto eliminado no encontrado.');
       await tx.budget.update({ where: { id }, data: { deletedAt: null } });
       await tx.budgetCategory.updateMany({ where: { budgetId: id, deletedAt: { not: null } }, data: { deletedAt: null } });
-      return this.serialize({ ...budget, deletedAt: null });
+      const restored = await tx.budget.findFirst({
+        where: { id, userId, deletedAt: null },
+        include: {
+          categories: {
+            where: { deletedAt: null },
+            include: { category: { select: { id: true, name: true, type: true } } },
+          },
+        },
+      });
+      if (!restored) throw new NotFoundException('Presupuesto no encontrado después de restaurarlo.');
+      return this.serialize(restored);
     });
   }
 }
