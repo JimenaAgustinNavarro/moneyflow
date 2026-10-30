@@ -24,3 +24,7 @@ coverage/
 prisma/migrations/dev.db*
 
 *.tsbuildinfo
+
+# Next.js dev cache
+apps/web/.next-dev/
+.next-dev/
