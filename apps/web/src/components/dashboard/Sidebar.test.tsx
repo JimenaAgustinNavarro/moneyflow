@@ -1,13 +1,17 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const pathname = vi.hoisted(() => vi.fn(() => '/dashboard'));
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/dashboard',
+  usePathname: pathname,
 }));
 
 import { Sidebar } from './Sidebar';
 
 describe('Sidebar', () => {
+  beforeEach(() => pathname.mockReturnValue('/dashboard'));
+
   it('muestra Dashboard y Cuentas activos, Categorías habilitada', () => {
     render(<Sidebar />);
 
@@ -29,7 +33,9 @@ describe('Sidebar', () => {
       '/obligations',
     );
 
-    for (const label of ['Presupuestos', 'Metas', 'Configuración']) {
+    expect(screen.getByRole('link', { name: 'Presupuestos' })).toHaveAttribute('href', '/budgets');
+
+    for (const label of ['Metas', 'Configuración']) {
       expect(screen.getByLabelText(label)).toHaveAttribute('aria-disabled', 'true');
       expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument();
     }
@@ -48,10 +54,18 @@ describe('Sidebar', () => {
   it('marca como deshabilitados los elementos aún no disponibles', () => {
     render(<Sidebar />);
 
-    for (const label of ['Presupuestos', 'Metas', 'Configuración']) {
+    for (const label of ['Metas', 'Configuración']) {
       const item = screen.getByLabelText(label);
       expect(item).toHaveAttribute('aria-disabled', 'true');
       expect(item).toHaveAttribute('title', 'Próximamente');
     }
+  });
+
+  it('marca Presupuestos como activo en /budgets', () => {
+    pathname.mockReturnValue('/budgets');
+    render(<Sidebar />);
+
+    expect(screen.getByRole('link', { name: 'Presupuestos' })).toHaveAttribute('href', '/budgets');
+    expect(screen.getByRole('link', { name: 'Presupuestos' })).toHaveAttribute('aria-current', 'page');
   });
 });

@@ -22,7 +22,7 @@ const navigationItems = [
   { href: '/transactions', label: 'Movimientos', icon: ArrowLeftRight, enabled: true },
   { href: '/recurrences', label: 'Recurrencias', icon: Repeat2, enabled: true },
   { href: '/obligations', label: 'Obligaciones', icon: ListTodo, enabled: true },
-  { href: '/budgets', label: 'Presupuestos', icon: PiggyBank, enabled: false },
+  { href: '/budgets', label: 'Presupuestos', icon: PiggyBank, enabled: true },
   { href: '/savings-goals', label: 'Metas', icon: Target, enabled: false },
   { href: '/settings', label: 'Configuración', icon: Settings, enabled: false },
 ] as const;
