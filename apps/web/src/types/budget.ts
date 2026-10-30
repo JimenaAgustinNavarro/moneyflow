@@ -19,6 +19,9 @@ export interface Budget {
   endDate: string | null;
   alertThreshold: number;
   active: boolean;
+  spent?: string;
+  percentage?: number;
+  status?: BudgetStatus;
   categories: BudgetCategory[];
   createdAt: string;
   updatedAt: string;

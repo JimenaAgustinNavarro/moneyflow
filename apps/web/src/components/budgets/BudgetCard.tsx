@@ -3,7 +3,6 @@
 import { Copy, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useBudgetUsage } from '@/hooks/useBudgets';
 import { formatCurrency } from '@/lib/format-currency';
 import type { Budget, BudgetPeriod } from '@/types/budget';
 
@@ -41,12 +40,10 @@ interface Props {
 }
 
 export function BudgetCard({ budget, onEdit, onCopy, onDelete, onRestore }: Props) {
-  const usageQuery = useBudgetUsage(budget.id);
-  const usage = usageQuery.data;
   const deleted = Boolean(budget.deletedAt);
 
-  const percentage = usage?.percentage ?? 0;
-  const status = usage?.status ?? 'UNDER_LIMIT';
+  const percentage = budget.percentage ?? 0;
+  const status = budget.status ?? 'UNDER_LIMIT';
   const colors = STATUS_COLORS[status];
   const barWidth = Math.min(percentage, 100);
 
@@ -94,11 +91,9 @@ export function BudgetCard({ budget, onEdit, onCopy, onDelete, onRestore }: Prop
         <div className="space-y-1">
           <div className="flex justify-between text-xs">
             <span className={colors.text}>
-              {usage
-                ? `${formatCurrency(usage.spent, budget.currency)} · ${percentage.toFixed(1)}%`
-                : 'Cargando...'}
+              {`${formatCurrency(budget.spent ?? '0.00', budget.currency)} · ${percentage.toFixed(1)}%`}
             </span>
-            <span className={colors.text}>{usage ? colors.label : ''}</span>
+            <span className={colors.text}>{colors.label}</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
             <div
@@ -110,7 +105,7 @@ export function BudgetCard({ budget, onEdit, onCopy, onDelete, onRestore }: Prop
             <p className="text-xs text-rose-600 dark:text-rose-400">
               Excedido por{' '}
               {formatCurrency(
-                (Number(usage?.spent ?? 0) - Number(budget.limit)).toFixed(2),
+                (Number(budget.spent ?? 0) - Number(budget.limit)).toFixed(2),
                 budget.currency,
               )}
             </p>

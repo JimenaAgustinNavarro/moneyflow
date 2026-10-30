@@ -90,7 +90,7 @@ export class DashboardService {
       expenseResult,
       categoryGroups,
       recentTransactions,
-      committedMoneyAgg,
+      committedObligations,
       upcomingObligations,
       budgets,
     ] = await Promise.all([
@@ -151,7 +151,7 @@ export class DashboardService {
           orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }],
           take: 10,
         }),
-        this.prisma.obligation.aggregate({
+        this.prisma.obligation.findMany({
           where: {
             userId,
             deletedAt: null,
@@ -164,19 +164,28 @@ export class DashboardService {
             },
             dueDate: { gte: from, lte: to },
           },
-          _sum: { amount: true },
+          include: {
+            payments: { where: { status: { not: 'CANCELLED' } }, select: { amount: true } },
+          },
         }),
         this.prisma.obligation.findMany({
           where: {
             userId,
             deletedAt: null,
-            status: { in: [ObligationStatus.PENDING, ObligationStatus.PARTIALLY_PAID] },
+            status: {
+              in: [
+                ObligationStatus.PENDING,
+                ObligationStatus.PARTIALLY_PAID,
+                ObligationStatus.OVERDUE,
+              ],
+            },
           },
           orderBy: { dueDate: 'asc' },
           take: 5,
           include: {
             account: { select: { name: true } },
             category: { select: { name: true } },
+            payments: { where: { status: { not: 'CANCELLED' } }, select: { amount: true } },
           },
         }),
         this.prisma.budget.findMany({
@@ -189,6 +198,14 @@ export class DashboardService {
           },
         }),
       ]);
+
+    const committedMoney = committedObligations.reduce((sum, obligation) => {
+      const paid = (obligation.payments ?? []).reduce(
+        (paymentSum, payment) => paymentSum.add(payment.amount),
+        new Prisma.Decimal(0),
+      );
+      return sum.add(Prisma.Decimal.max(obligation.amount.sub(paid), 0));
+    }, new Prisma.Decimal(0));
 
     const categoryIds = categoryGroups.flatMap((group) =>
       group.categoryId === null ? [] : [group.categoryId],
@@ -272,17 +289,23 @@ export class DashboardService {
           ? (categoryNames.get(transaction.categoryId) ?? null)
           : null,
       })),
-      committedMoney: new Prisma.Decimal(committedMoneyAgg._sum.amount ?? 0).toFixed(2),
-      upcomingPayments: upcomingObligations.slice(0, 5).map((obligation) => ({
-        id: obligation.id,
-        name: obligation.name,
-        amount: obligation.amount.toFixed(2),
-        currency: obligation.currency,
-        dueDate: obligation.dueDate.toISOString(),
-        status: obligation.status,
-        accountName: obligation.account.name,
-        categoryName: obligation.category?.name ?? null,
-      })),
+      committedMoney: committedMoney.toFixed(2),
+      upcomingPayments: upcomingObligations.slice(0, 5).map((obligation) => {
+        const paid = (obligation.payments ?? []).reduce(
+          (paymentSum, payment) => paymentSum.add(payment.amount),
+          new Prisma.Decimal(0),
+        );
+        return {
+          id: obligation.id,
+          name: obligation.name,
+          amount: Prisma.Decimal.max(obligation.amount.sub(paid), 0).toFixed(2),
+          currency: obligation.currency,
+          dueDate: obligation.dueDate.toISOString(),
+          status: obligation.status,
+          accountName: obligation.account.name,
+          categoryName: obligation.category?.name ?? null,
+        };
+      }),
       topBudgets: budgetUsage
         .sort((first, second) => second.percentage - first.percentage)
         .slice(0, 3),

@@ -1,4 +1,5 @@
-import { IsBooleanString, IsEnum, IsISO8601, IsOptional, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBooleanString, IsEnum, IsInt, IsISO8601, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { ObligationStatus } from '@prisma/client';
 
 export class ObligationQueryDto {
@@ -33,4 +34,17 @@ export class ObligationQueryDto {
   @IsOptional()
   @IsBooleanString()
   includeDeleted?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit: number = 20;
 }

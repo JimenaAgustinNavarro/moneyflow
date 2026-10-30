@@ -175,15 +175,25 @@ export class ObligationsService {
         dueDate: { lt: new Date() },
       }),
     };
-    const obligations = await this.prisma.obligation.findMany({
-      where,
-      include: {
-        account: { select: { id: true, name: true } },
-        category: { select: { id: true, name: true } },
-      },
-      orderBy: { dueDate: 'asc' },
-    });
-    return { data: obligations.map((obligation) => this.serialize(obligation)) };
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const [total, obligations] = await this.prisma.$transaction([
+      this.prisma.obligation.count({ where }),
+      this.prisma.obligation.findMany({
+        where,
+        include: {
+          account: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true } },
+        },
+        orderBy: { dueDate: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+    return {
+      data: obligations.map((obligation) => this.serialize(obligation)),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async upcoming(userId: string) {

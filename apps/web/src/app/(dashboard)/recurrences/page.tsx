@@ -28,6 +28,7 @@ import type {
 
 export default function RecurrencesPage() {
   const [filters, setFilters] = useState<Filters>({});
+  const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Recurrence | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Recurrence | null>(null);
@@ -36,7 +37,7 @@ export default function RecurrencesPage() {
 
   const accountsQuery = useAccounts(false);
   const categoriesQuery = useCategories();
-  const recurrencesQuery = useRecurrences(filters);
+  const recurrencesQuery = useRecurrences({ ...filters, page, limit: 20 });
   const createRecurrence = useCreateRecurrence();
   const updateRecurrence = useUpdateRecurrence();
   const deleteRecurrence = useDeleteRecurrence();
@@ -46,6 +47,7 @@ export default function RecurrencesPage() {
   const accounts = accountsQuery.data ?? [];
   const categories = categoriesQuery.data ?? [];
   const recurrences = recurrencesQuery.data?.data ?? [];
+  const meta = recurrencesQuery.data?.meta;
 
   const getErrorMessage = (error: unknown, fallback: string) =>
     error instanceof ApiError || error instanceof Error ? error.message : fallback;
@@ -137,8 +139,8 @@ export default function RecurrencesPage() {
         filters={filters}
         accounts={accounts}
         categories={categories}
-        onChange={setFilters}
-        onReset={() => setFilters({})}
+        onChange={(nextFilters) => { setFilters(nextFilters); setPage(1); }}
+        onReset={() => { setFilters({}); setPage(1); }}
       />
 
       {recurrencesQuery.isPending && (
@@ -160,6 +162,18 @@ export default function RecurrencesPage() {
           onDelete={setPendingDelete}
           onRestore={(recurrence) => void handleRestore(recurrence)}
         />
+      )}
+
+      {meta && meta.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1 || recurrencesQuery.isFetching}>
+            Anterior
+          </Button>
+          <span className="text-sm text-muted-foreground">Página {meta.page} de {meta.totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage(Math.min(meta.totalPages, page + 1))} disabled={page >= meta.totalPages || recurrencesQuery.isFetching}>
+            Siguiente
+          </Button>
+        </div>
       )}
 
       <RecurrenceFormModal

@@ -24,6 +24,8 @@ function buildQuery(filters: RecurrenceFilters): string {
   if (filters.accountId) params.set('accountId', filters.accountId);
   if (filters.categoryId) params.set('categoryId', filters.categoryId);
   if (filters.includeDeleted) params.set('includeDeleted', 'true');
+  if (filters.page !== undefined) params.set('page', String(filters.page));
+  if (filters.limit !== undefined) params.set('limit', String(filters.limit));
   const query = params.toString();
   return query ? `?${query}` : '';
 }

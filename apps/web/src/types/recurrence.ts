@@ -64,8 +64,11 @@ export interface RecurrenceFilters {
   accountId?: string;
   categoryId?: string;
   includeDeleted?: boolean;
+  page?: number;
+  limit?: number;
 }
 
 export interface RecurrenceListResponse {
   data: Recurrence[];
+  meta?: { page: number; limit: number; total: number; totalPages: number };
 }

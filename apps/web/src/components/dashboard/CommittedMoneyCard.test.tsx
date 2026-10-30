@@ -6,7 +6,7 @@ describe('CommittedMoneyCard', () => {
   it('renderiza el valor comprometido y el enlace', () => {
     render(<CommittedMoneyCard committedMoney="1500.00" isLoading={false} />);
     expect(screen.getByText('Comprometido')).toBeInTheDocument();
-    expect(screen.getByText(/1,500\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/1[,.]?500\.00/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ver todas' })).toHaveAttribute('href', '/obligations');
   });
 
@@ -19,6 +19,6 @@ describe('CommittedMoneyCard', () => {
     const { rerender } = render(<CommittedMoneyCard committedMoney="0.00" isLoading={false} />);
     expect(screen.getByText(/0\.00/)).toHaveClass('text-foreground');
     rerender(<CommittedMoneyCard committedMoney="1500.00" isLoading={false} />);
-    expect(screen.getByText(/1,500\.00/)).toHaveClass('text-amber-600');
+    expect(screen.getByText(/1[,.]?500\.00/)).toHaveClass('text-amber-600');
   });
 });

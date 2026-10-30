@@ -155,12 +155,46 @@ export class BudgetsService {
       },
       orderBy: { createdAt: 'desc' },
     });
-    const serialized = await Promise.all(budgets.map(async (budget) => {
+    if (budgets.length === 0) return { data: [] };
+
+    const allCategoryIds = budgets.flatMap((budget) =>
+      budget.categories.map((relation) => relation.categoryId),
+    );
+    const expenses = allCategoryIds.length
+      ? await this.prisma.transaction.groupBy({
+          by: ['categoryId'],
+          where: {
+            userId,
+            type: TransactionType.EXPENSE,
+            status: TransactionStatus.CONFIRMED,
+            deletedAt: null,
+            categoryId: { in: [...new Set(allCategoryIds)] },
+            occurredAt: {
+              gte: new Date(Math.min(...budgets.map((budget) => budget.startDate.getTime()))),
+              lte: new Date(Math.max(...budgets.map((budget) => (budget.endDate ?? new Date()).getTime()))),
+            },
+          },
+          _sum: { amount: true },
+        })
+      : [];
+
+    const serialized = budgets.map((budget) => {
       const categoryIds = budget.categories.map((relation) => relation.categoryId);
-      const spent = await this.calculateSpent(this.prisma, userId, categoryIds, budget.startDate, budget.endDate);
-      const percentage = spent.div(budget.amount).mul(100).toNumber();
-      return { ...this.serialize(budget), status: this.calculateStatus(percentage, budget.alertThreshold) };
-    }));
+      const spent = categoryIds.length
+        ? expenses
+            .filter((expense) => expense.categoryId !== null && categoryIds.includes(expense.categoryId))
+            .reduce((sum, expense) => sum.add(expense._sum.amount ?? 0), new Prisma.Decimal(0))
+        : new Prisma.Decimal(0);
+      const percentage = budget.amount.gt(0)
+        ? spent.div(budget.amount).mul(100).toNumber()
+        : 0;
+      return {
+        ...this.serialize(budget),
+        spent: spent.toFixed(2),
+        percentage,
+        status: this.calculateStatus(percentage, budget.alertThreshold),
+      };
+    });
     return { data: query.status ? serialized.filter((budget) => budget.status === query.status) : serialized };
   }
 
@@ -175,7 +209,17 @@ export class BudgetsService {
       },
     });
     if (!budget) throw new NotFoundException('Presupuesto no encontrado.');
-    return this.serialize(budget);
+    const categoryIds = budget.categories.map((relation) => relation.categoryId);
+    const spent = await this.calculateSpent(this.prisma, userId, categoryIds, budget.startDate, budget.endDate);
+    const percentage = budget.amount.gt(0)
+      ? spent.div(budget.amount).mul(100).toNumber()
+      : 0;
+    return {
+      ...this.serialize(budget),
+      spent: spent.toFixed(2),
+      percentage,
+      status: this.calculateStatus(percentage, budget.alertThreshold),
+    };
   }
 
   async usage(userId: string, id: string) {

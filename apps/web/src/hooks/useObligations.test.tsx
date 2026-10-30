@@ -13,10 +13,10 @@ function wrapperFor() { const queryClient = new QueryClient({ defaultOptions: { 
 describe('hooks de obligaciones', () => {
   beforeEach(() => authenticatedRequest.mockReset());
   it('lista con filtros y obtiene detalle y próximos', async () => {
-    authenticatedRequest.mockResolvedValue({ data: [] }); const { wrapper } = wrapperFor();
-    const list = renderHook(() => useObligations({ status: 'PENDING', overdue: true, accountId: 'account-1', includeDeleted: true }), { wrapper });
+    authenticatedRequest.mockResolvedValue({ data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }); const { wrapper } = wrapperFor();
+    const list = renderHook(() => useObligations({ status: 'PENDING', overdue: true, accountId: 'account-1', includeDeleted: true, page: 2, limit: 20 }), { wrapper });
     await waitFor(() => expect(list.result.current.isSuccess).toBe(true));
-    expect(authenticatedRequest).toHaveBeenCalledWith('/obligations?status=PENDING&overdue=true&accountId=account-1&includeDeleted=true');
+    expect(authenticatedRequest).toHaveBeenCalledWith('/obligations?status=PENDING&overdue=true&accountId=account-1&includeDeleted=true&page=2&limit=20');
     renderHook(() => useUpcomingObligations(), { wrapper }); renderHook(() => useObligation('obligation-1'), { wrapper });
     await waitFor(() => expect(authenticatedRequest).toHaveBeenCalledWith('/obligations/upcoming'));
   });

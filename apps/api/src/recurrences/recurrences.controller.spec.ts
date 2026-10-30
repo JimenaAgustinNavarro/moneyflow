@@ -12,7 +12,7 @@ describe('RecurrencesController', () => {
   beforeEach(() => {
     service = {
       create: jest.fn().mockResolvedValue({ id: 'recurrence-1' }),
-      findAll: jest.fn().mockResolvedValue({ data: [] }),
+      findAll: jest.fn().mockResolvedValue({ data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }),
       findOne: jest.fn().mockResolvedValue({ id: 'recurrence-1' }),
       update: jest.fn().mockResolvedValue({ id: 'recurrence-1' }),
       remove: jest.fn().mockResolvedValue(undefined),
@@ -29,8 +29,10 @@ describe('RecurrencesController', () => {
     expect(service.create).toHaveBeenCalledWith('user-1', {});
   });
 
-  it('lista recurrencias sin paginación', async () => {
-    await expect(controller.findAll(user, {})).resolves.toEqual({ data: [] });
+  it('lista recurrencias paginadas', async () => {
+    await expect(controller.findAll(user, {})).resolves.toEqual({
+      data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    });
   });
 
   it('obtiene, actualiza, elimina, restaura y alterna recurrencias', async () => {

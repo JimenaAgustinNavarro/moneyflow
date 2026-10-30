@@ -193,15 +193,25 @@ export class RecurrencesService {
       ...(query.accountId && { accountId: query.accountId }),
       ...(query.categoryId && { categoryId: query.categoryId }),
     };
-    const recurrences = await this.prisma.recurrence.findMany({
-      orderBy: { createdAt: 'desc' },
-      where,
-      include: {
-        account: { select: { id: true, name: true } },
-        category: { select: { id: true, name: true } },
-      },
-    });
-    return { data: recurrences.map((recurrence) => this.serialize(recurrence)) };
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const [total, recurrences] = await this.prisma.$transaction([
+      this.prisma.recurrence.count({ where }),
+      this.prisma.recurrence.findMany({
+        orderBy: { createdAt: 'desc' },
+        where,
+        include: {
+          account: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true } },
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+    return {
+      data: recurrences.map((recurrence) => this.serialize(recurrence)),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async findOne(userId: string, id: string) {

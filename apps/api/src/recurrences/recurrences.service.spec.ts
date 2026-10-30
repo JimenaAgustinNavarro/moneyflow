@@ -32,12 +32,30 @@ const recurrence = (overrides: Record<string, unknown> = {}): RecurrenceWithRela
 
 describe('RecurrencesService', () => {
   let service: RecurrencesService;
+  let prisma: any;
 
   beforeEach(() => {
-    service = new RecurrencesService({} as PrismaService);
+    prisma = {
+      $transaction: jest.fn((queries: unknown[]) => Promise.all(queries)),
+      recurrence: {
+        count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    service = new RecurrencesService(prisma as PrismaService);
   });
 
   afterEach(() => jest.useRealTimers());
+
+  it('lista recurrencias con meta y paginación', async () => {
+    prisma.recurrence.count.mockResolvedValue(41);
+    prisma.recurrence.findMany.mockResolvedValue([recurrence()]);
+    await expect(service.findAll('user-1', { page: 2, limit: 20 })).resolves.toEqual({
+      data: expect.any(Array),
+      meta: { page: 2, limit: 20, total: 41, totalPages: 3 },
+    });
+    expect(prisma.recurrence.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 20, take: 20 }));
+  });
 
   it('serializa los datos de cuenta y categoría', () => {
     const result = service['serialize'](recurrence());

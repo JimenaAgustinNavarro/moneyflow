@@ -44,10 +44,7 @@ describe('DashboardService', () => {
     };
     transfer: { findMany: jest.Mock };
     category: { findMany: jest.Mock };
-    obligation: {
-      aggregate: jest.Mock;
-      findMany: jest.Mock;
-    };
+    obligation: { findMany: jest.Mock };
     budget: { findMany: jest.Mock };
   };
 
@@ -61,10 +58,7 @@ describe('DashboardService', () => {
       },
       transfer: { findMany: jest.fn().mockResolvedValue([]) },
       category: { findMany: jest.fn().mockResolvedValue([]) },
-      obligation: {
-        aggregate: jest.fn().mockResolvedValue({ _sum: { amount: null } }),
-        findMany: jest.fn().mockResolvedValue([]),
-      },
+      obligation: { findMany: jest.fn().mockResolvedValue([]) },
       budget: { findMany: jest.fn().mockResolvedValue([]) },
     };
     service = new DashboardService(prisma as unknown as PrismaService);
@@ -85,34 +79,59 @@ describe('DashboardService', () => {
   });
 
   it.each(['PENDING', 'PARTIALLY_PAID', 'OVERDUE'])(
-    'incluye obligaciones %s en dinero comprometido',
-    async (_status) => {
-      prisma.obligation.aggregate.mockResolvedValue({
-        _sum: { amount: new Prisma.Decimal('125.50') },
-      });
+    'incluye obligaciones %s en dinero comprometido y resta pagos',
+    async (status) => {
+      prisma.obligation.findMany.mockResolvedValueOnce([
+        { amount: new Prisma.Decimal('125.50'), payments: [{ amount: new Prisma.Decimal('40.00') }] },
+      ]).mockResolvedValueOnce([]);
 
       const result = await service.summary(userId, new DashboardQueryDto());
 
-      expect(result.committedMoney).toBe('125.50');
-      expect(prisma.obligation.aggregate).toHaveBeenCalledWith(
+      expect(result.committedMoney).toBe(status === 'PENDING' ? '85.50' : status === 'PARTIALLY_PAID' ? '85.50' : '85.50');
+      expect(prisma.obligation.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({
-            userId,
-            status: { in: ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'] },
-          }),
+          where: expect.objectContaining({ userId, status: expect.objectContaining({ in: expect.arrayContaining(['PENDING', 'PARTIALLY_PAID', 'OVERDUE']) }) }),
         }),
       );
     },
   );
 
-  it.each(['PAID', 'CANCELLED'])('no incluye obligaciones %s en dinero comprometido', async (status) => {
-    prisma.obligation.aggregate.mockResolvedValue({ _sum: { amount: null } });
+  it('incluye una obligación pendiente sin pagos por su importe completo', async () => {
+    prisma.obligation.findMany.mockResolvedValueOnce([
+      { amount: new Prisma.Decimal('100.00'), payments: [] },
+    ]).mockResolvedValueOnce([]);
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.committedMoney).toBe('100.00');
+  });
+
+  it('incluye OVERDUE en los próximos pagos con el saldo pendiente', async () => {
+    prisma.obligation.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        id: 'overdue-1', name: 'Alquiler vencido', amount: new Prisma.Decimal('100.00'),
+        currency: 'PEN', dueDate: new Date('2026-10-15T05:00:00.000Z'), status: 'OVERDUE',
+        account: { name: 'Principal' }, category: { name: 'Vivienda' },
+        payments: [{ amount: new Prisma.Decimal('40.00') }],
+      },
+    ]);
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.upcomingPayments).toEqual([expect.objectContaining({ id: 'overdue-1', amount: '60.00', status: 'OVERDUE' })]);
+  });
+
+  it('no permite comprometer una obligación por debajo de cero ni incluir estados pagados/cancelados', async () => {
+    prisma.obligation.findMany.mockResolvedValueOnce([
+      { amount: new Prisma.Decimal('100.00'), payments: [{ amount: new Prisma.Decimal('120.00') }] },
+    ]).mockResolvedValueOnce([]);
 
     const result = await service.summary(userId, new DashboardQueryDto());
 
     expect(result.committedMoney).toBe('0.00');
-    const call = prisma.obligation.aggregate.mock.calls[0][0];
-    expect(call.where.status.in).not.toContain(status);
+    const call = prisma.obligation.findMany.mock.calls[0][0];
+    expect(call.where.status.in).not.toContain('PAID');
+    expect(call.where.status.in).not.toContain('CANCELLED');
   });
 
   it('devuelve los cinco próximos pagos más cercanos cuando existen siete obligaciones', async () => {
@@ -126,6 +145,7 @@ describe('DashboardService', () => {
         status: 'PENDING',
         account: { name: 'Cuenta principal' },
         category: index % 2 === 0 ? { name: 'Servicios' } : null,
+        payments: [],
       })),
     );
 

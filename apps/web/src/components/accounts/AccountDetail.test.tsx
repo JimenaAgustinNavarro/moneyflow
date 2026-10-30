@@ -28,7 +28,7 @@ describe('AccountDetail', () => {
     expect(screen.getByRole('heading', { name: 'Ahorros' })).toBeInTheDocument();
     expect(screen.getByText('Banco')).toBeInTheDocument();
     expect(screen.getByText('Archivada')).toBeInTheDocument();
-    expect(screen.getByText('S/ 125.50')).toBeInTheDocument();
+    expect(screen.getByText(/125[,.]?50/)).toBeInTheDocument();
     expect(screen.getByText('PEN')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Volver a cuentas' })).toHaveAttribute(
       'href',

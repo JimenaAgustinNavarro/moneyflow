@@ -20,6 +20,7 @@ describe('UpcomingPayments', () => {
     expect(screen.getByText('Pago 1')).toBeInTheDocument();
     expect(screen.getByText('Pendiente')).toBeInTheDocument();
     expect(screen.getByText('Parcial')).toBeInTheDocument();
+    expect(screen.getAllByText(/100[,.]?00/)).not.toHaveLength(0);
     expect(screen.getByRole('link', { name: 'Ver todas' })).toHaveAttribute('href', '/obligations');
   });
 

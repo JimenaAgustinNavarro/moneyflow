@@ -27,6 +27,7 @@ describe('TopBudgets', () => {
     expect(screen.getByText('Bajo control')).toBeInTheDocument();
     expect(screen.getByText('Cerca del límite')).toBeInTheDocument();
     expect(screen.getByText('Excedido')).toBeInTheDocument();
+    expect(screen.getAllByText(/400[,.]?00.*500[,.]?00/)).not.toHaveLength(0);
     expect(screen.getByRole('link', { name: 'Ver todos' })).toHaveAttribute('href', '/budgets');
   });
 

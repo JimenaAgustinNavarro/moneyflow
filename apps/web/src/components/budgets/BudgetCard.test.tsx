@@ -3,15 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { Budget } from '@/types/budget';
 
-const useBudgetUsage = vi.hoisted(() => vi.fn());
-vi.mock('@/hooks/useBudgets', () => ({ useBudgetUsage }));
-
 import { BudgetCard } from './BudgetCard';
 
 const budget: Budget = {
   id: 'budget-1', userId: 'user-1', name: 'Hogar', limit: '500.00', currency: 'PEN',
   periodType: 'MONTHLY', startDate: '2026-10-01T00:00:00-05:00', endDate: null,
-  alertThreshold: 80, active: true, categories: [{ id: 'category-1', name: 'Servicios', type: 'EXPENSE' }],
+  alertThreshold: 80, active: true, spent: '400.00', percentage: 80, status: 'UNDER_LIMIT',
+  categories: [{ id: 'category-1', name: 'Servicios', type: 'EXPENSE' }],
   createdAt: '', updatedAt: '', deletedAt: null,
 };
 
@@ -21,7 +19,6 @@ function renderCard(overrides: Partial<Budget> = {}) {
 
 describe('BudgetCard', () => {
   it('renderiza nombre, límite y categorías', () => {
-    useBudgetUsage.mockReturnValue({ data: undefined });
     renderCard();
     expect(screen.getByText('Hogar')).toBeInTheDocument();
     expect(screen.getByText('Servicios')).toBeInTheDocument();
@@ -33,14 +30,12 @@ describe('BudgetCard', () => {
     ['NEAR_LIMIT', 'bg-yellow-500'],
     ['OVER_LIMIT', 'bg-rose-500'],
   ] as const)('usa el color correspondiente para %s', (status, className) => {
-    useBudgetUsage.mockReturnValue({ data: { spent: '400.00', percentage: 80, status, limit: '500.00', alertThreshold: 80, period: { startDate: '', endDate: null } } });
-    const { container } = renderCard();
+    const { container } = renderCard({ percentage: status === 'OVER_LIMIT' ? 120 : status === 'NEAR_LIMIT' ? 80 : 40, status });
     expect(container.querySelector(`.${className}`)).toBeInTheDocument();
     expect(screen.getByText(/80\.0%/)).toBeInTheDocument();
   });
 
   it('dispara editar, copiar y eliminar', async () => {
-    useBudgetUsage.mockReturnValue({ data: undefined });
     const user = userEvent.setup();
     const onEdit = vi.fn();
     const onCopy = vi.fn();
@@ -55,7 +50,6 @@ describe('BudgetCard', () => {
   });
 
   it('restauración aparece para presupuestos eliminados', async () => {
-    useBudgetUsage.mockReturnValue({ data: undefined });
     const onRestore = vi.fn();
     const deleted = { ...budget, deletedAt: '2026-10-30' };
     render(<BudgetCard budget={deleted} onEdit={vi.fn()} onCopy={vi.fn()} onDelete={vi.fn()} onRestore={onRestore} />);

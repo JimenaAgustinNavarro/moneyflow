@@ -22,7 +22,10 @@ describe('BudgetsService', () => {
       category: { findMany: jest.fn(), findFirst: jest.fn() },
       budget: { create: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
       budgetCategory: { updateMany: jest.fn(), update: jest.fn(), create: jest.fn() },
-      transaction: { aggregate: jest.fn().mockResolvedValue({ _sum: { amount: new Prisma.Decimal('0') } }) },
+      transaction: {
+        aggregate: jest.fn().mockResolvedValue({ _sum: { amount: new Prisma.Decimal('0') } }),
+        groupBy: jest.fn().mockResolvedValue([]),
+      },
     };
     prisma = { $transaction: jest.fn((callback) => callback(tx)), ...tx, budget: tx.budget };
     service = new BudgetsService(prisma as PrismaService);
@@ -67,10 +70,16 @@ describe('BudgetsService', () => {
 
   it('filtra por activo y estado calculado', async () => {
     prisma.budget.findMany.mockResolvedValue([budget(), budget({ id: 'budget-2', amount: new Prisma.Decimal('50') })]);
-    prisma.transaction.aggregate.mockResolvedValue({ _sum: { amount: new Prisma.Decimal('110') } });
+    prisma.budget.findMany.mockResolvedValue([
+      budget({ categories: [{ categoryId: 'cat-1', deletedAt: null }] }),
+      budget({ id: 'budget-2', categories: [{ categoryId: 'cat-1', deletedAt: null }] }),
+    ]);
+    prisma.transaction.groupBy.mockResolvedValue([
+      { categoryId: 'cat-1', _sum: { amount: new Prisma.Decimal('110') } },
+    ]);
     const active = await service.findAll('user-1', { active: 'true' });
     expect(prisma.budget.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ active: true }) }));
-    expect(active.data[0].status).toBe(BudgetStatus.OVER_LIMIT);
+    expect(active.data[0]).toEqual(expect.objectContaining({ spent: '110.00', percentage: 110, status: BudgetStatus.OVER_LIMIT }));
     await expect(service.findAll('user-1', { status: BudgetStatus.OVER_LIMIT })).resolves.toEqual(expect.objectContaining({ data: expect.any(Array) }));
   });
 

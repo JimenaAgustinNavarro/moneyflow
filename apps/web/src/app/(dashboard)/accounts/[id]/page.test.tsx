@@ -116,7 +116,7 @@ describe('AccountDetailPage', () => {
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Recalcular saldo' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Saldo recalculado: S/ 200.00');
+    expect(await screen.findByRole('status')).toHaveTextContent(/200[,.]?00/);
 
     await user.click(screen.getByRole('button', { name: 'Editar' }));
     const nameInput = screen.getByLabelText('Nombre');

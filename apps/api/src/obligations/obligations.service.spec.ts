@@ -26,10 +26,14 @@ describe('ObligationsService', () => {
       account: { findFirst: jest.fn().mockResolvedValue({ id: 'account-1' }) },
       category: { findFirst: jest.fn() },
       recurrence: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
-      obligation: { create: jest.fn().mockImplementation(({ data }) => Promise.resolve(obligation(data))), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+      obligation: { create: jest.fn().mockImplementation(({ data }) => Promise.resolve(obligation(data))), findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn().mockResolvedValue(0), update: jest.fn() },
       transaction: { create: jest.fn() }, obligationPayment: { create: jest.fn() },
     };
-    prisma = { $transaction: jest.fn((callback) => callback(tx)), obligation: tx.obligation, recurrence: tx.recurrence };
+    prisma = {
+      $transaction: jest.fn((callbackOrQueries) => Array.isArray(callbackOrQueries) ? Promise.all(callbackOrQueries) : callbackOrQueries(tx)),
+      obligation: tx.obligation,
+      recurrence: tx.recurrence,
+    };
     service = new ObligationsService(prisma as PrismaService);
   });
 
@@ -47,9 +51,13 @@ describe('ObligationsService', () => {
     await expect(service.create('user-1', { amount: '100', dueDate: '2026-12-01T00:00:00-05:00', accountId: 'account-1', recurrenceId: 'recurrence-1', type: 'EXPENSE', name: 'Luz' } as never)).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('lista filtros y próximos cinco', async () => {
+  it('lista filtros y próximos cinco con paginación', async () => {
     prisma.obligation.findMany.mockResolvedValue([obligation()]);
-    await expect(service.findAll('user-1', { status: ObligationStatus.PENDING })).resolves.toEqual(expect.objectContaining({ data: expect.any(Array) }));
+    prisma.obligation.count.mockResolvedValue(21);
+    await expect(service.findAll('user-1', { status: ObligationStatus.PENDING, page: 2, limit: 20 })).resolves.toEqual(expect.objectContaining({
+      data: expect.any(Array),
+      meta: { page: 2, limit: 20, total: 21, totalPages: 2 },
+    }));
     await expect(service.upcoming('user-1')).resolves.toEqual(expect.objectContaining({ data: expect.any(Array) }));
     expect(prisma.obligation.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 5 }));
   });
@@ -63,6 +71,7 @@ describe('ObligationsService', () => {
     const result = await service.findAll('user-1', {} as never);
 
     expect(result.data[0]).toEqual(expect.objectContaining({ accountName: 'Cuenta principal', categoryName: null }));
+    expect(result.meta).toEqual(expect.objectContaining({ page: 1, limit: 20 }));
     expect(result.data[1]).toEqual(expect.objectContaining({ accountName: 'Cuenta principal', categoryName: 'Servicios' }));
   });
 

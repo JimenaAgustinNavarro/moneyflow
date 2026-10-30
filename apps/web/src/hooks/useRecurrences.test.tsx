@@ -38,11 +38,11 @@ describe('hooks de recurrencias', () => {
   beforeEach(() => authenticatedRequest.mockReset());
 
   it('lista y filtra recurrencias', async () => {
-    authenticatedRequest.mockResolvedValue({ data: [recurrence] });
+    authenticatedRequest.mockResolvedValue({ data: [recurrence], meta: { page: 1, limit: 20, total: 1, totalPages: 1 } });
     const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useRecurrences({ active: true, type: 'EXPENSE', includeDeleted: true }), { wrapper });
+    const { result } = renderHook(() => useRecurrences({ active: true, type: 'EXPENSE', includeDeleted: true, page: 2, limit: 20 }), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(authenticatedRequest).toHaveBeenCalledWith('/recurrences?active=true&type=EXPENSE&includeDeleted=true');
+    expect(authenticatedRequest).toHaveBeenCalledWith('/recurrences?active=true&type=EXPENSE&includeDeleted=true&page=2&limit=20');
   });
 
   it('ejecuta las mutaciones e invalida recurrencias', async () => {

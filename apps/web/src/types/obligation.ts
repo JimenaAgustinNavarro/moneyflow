@@ -85,10 +85,13 @@ export interface ObligationFilters {
   accountId?: string;
   categoryId?: string;
   includeDeleted?: boolean;
+  page?: number;
+  limit?: number;
 }
 
 export interface ObligationListResponse {
   data: Obligation[];
+  meta?: { page: number; limit: number; total: number; totalPages: number };
 }
 
 export interface GenerateResult {

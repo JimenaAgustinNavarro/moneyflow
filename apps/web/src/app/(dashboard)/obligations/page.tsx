@@ -17,6 +17,7 @@ import type { CreateObligationInput, Obligation, ObligationFilters as Filters, P
 
 export default function ObligationsPage() {
   const [filters, setFilters] = useState<Filters>({});
+  const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Obligation | null>(null);
   const [paying, setPaying] = useState<Obligation | null>(null);
@@ -24,7 +25,7 @@ export default function ObligationsPage() {
   const [notice, setNotice] = useState<{ msg: string; isError: boolean } | null>(null);
   const accountsQuery = useAccounts(false);
   const categoriesQuery = useCategories();
-  const obligationsQuery = useObligations(filters);
+  const obligationsQuery = useObligations({ ...filters, page, limit: 20 });
   const createObl = useCreateObligation();
   const updateObl = useUpdateObligation();
   const deleteObl = useDeleteObligation();
@@ -41,15 +42,33 @@ export default function ObligationsPage() {
   const handleRestore = async (obligation: Obligation) => { try { await restoreObl.mutateAsync(obligation.id); setNotice({ msg: 'Obligación restaurada.', isError: false }); } catch (error) { setNotice({ msg: error instanceof ApiError ? error.message : 'Error', isError: true }); } };
   const handleGenerate = async () => { try { const response = await generate.mutateAsync(); setNotice({ msg: `Generadas: ${response.data.generated}, Omitidas: ${response.data.skipped}.`, isError: false }); } catch (error) { setNotice({ msg: error instanceof ApiError ? error.message : 'Error', isError: true }); } };
   const list = obligationsQuery.data?.data ?? [];
+  const meta = obligationsQuery.data?.meta;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold text-foreground">Obligaciones</h1><p className="text-sm text-muted-foreground">Gestiona tus pagos pendientes.</p></div><div className="flex gap-2"><GenerateButton onClick={handleGenerate} isLoading={generate.isPending} /><Button onClick={() => { setEditing(null); setModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Nueva obligación</Button></div></div>
       {notice && <div role="status" className={`rounded-md p-3 text-sm ${notice.isError ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>{notice.msg}</div>}
-      <ObligationFilters filters={filters} accounts={accounts} categories={categories} onChange={setFilters} onReset={() => setFilters({})} />
+      <ObligationFilters
+        filters={filters}
+        accounts={accounts}
+        categories={categories}
+        onChange={(nextFilters) => { setFilters(nextFilters); setPage(1); }}
+        onReset={() => { setFilters({}); setPage(1); }}
+      />
       {obligationsQuery.isPending && <p role="status" className="text-sm text-muted-foreground">Cargando obligaciones...</p>}
       {obligationsQuery.isError && <p role="alert" className="text-sm text-destructive">{obligationsQuery.error instanceof Error ? obligationsQuery.error.message : 'Error al cargar.'}</p>}
       {!obligationsQuery.isPending && !obligationsQuery.isError && <ObligationList obligations={list} onEdit={(obligation) => { setEditing(obligation); setModalOpen(true); }} onPay={setPaying} onDelete={setPendingDelete} onRestore={handleRestore} />}
+      {meta && meta.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1 || obligationsQuery.isFetching}>
+            Anterior
+          </Button>
+          <span className="text-sm text-muted-foreground">Página {meta.page} de {meta.totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage(Math.min(meta.totalPages, page + 1))} disabled={page >= meta.totalPages || obligationsQuery.isFetching}>
+            Siguiente
+          </Button>
+        </div>
+      )}
       <ObligationFormModal open={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }} onSubmitCreate={handleCreate} onSubmitEdit={handleEdit} accounts={accounts} categories={categories} editing={editing} />
       <PayObligationModal open={Boolean(paying)} onClose={() => setPaying(null)} onSubmit={handlePay} accounts={accounts} obligation={paying} />
       <ConfirmationModal open={Boolean(pendingDelete)} onOpenChange={(open) => !open && setPendingDelete(null)} title="Cancelar obligación" description={`¿Seguro que quieres cancelar "${pendingDelete?.name ?? ''}"? Se puede restaurar.`} confirmLabel="Cancelar obligación" cancelLabel="Volver" onConfirm={handleDelete} variant="destructive" isLoading={deleteObl.isPending} />

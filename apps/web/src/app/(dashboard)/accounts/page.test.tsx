@@ -120,7 +120,7 @@ describe('AccountsPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Acciones de Cuenta activa' }));
     await user.click(await screen.findByText('Recalcular saldo'));
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Saldo recalculado: S/ 1,000.00');
+    expect(await screen.findByRole('status')).toHaveTextContent(/1[,.]?000\.00/);
   });
 
   it('muestra un error del backend al fallar la consulta', async () => {

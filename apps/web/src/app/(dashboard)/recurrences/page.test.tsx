@@ -47,13 +47,13 @@ describe('RecurrencesPage', () => {
   });
 
   it('muestra estado vacío', () => {
-    recurrenceHooks.useRecurrences.mockReturnValue({ isPending: false, isError: false, data: { data: [] } });
+    recurrenceHooks.useRecurrences.mockReturnValue({ isPending: false, isError: false, data: { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } } });
     render(<RecurrencesPage />);
     expect(screen.getByText('Lista vacía')).toBeInTheDocument();
   });
 
   it('muestra recurrencias', () => {
-    recurrenceHooks.useRecurrences.mockReturnValue({ isPending: false, isError: false, data: { data: [{ name: 'Alquiler' }] } });
+    recurrenceHooks.useRecurrences.mockReturnValue({ isPending: false, isError: false, data: { data: [{ name: 'Alquiler' }], meta: { page: 1, limit: 20, total: 21, totalPages: 2 } } });
     render(<RecurrencesPage />);
     expect(screen.getByRole('heading', { name: 'Recurrencias' })).toBeInTheDocument();
     expect(screen.getByText('Alquiler')).toBeInTheDocument();

@@ -12,7 +12,7 @@ describe('ObligationsController', () => {
   beforeEach(() => {
     service = {
       create: jest.fn().mockResolvedValue({ id: 'obligation-1' }),
-      findAll: jest.fn().mockResolvedValue({ data: [] }),
+      findAll: jest.fn().mockResolvedValue({ data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }),
       upcoming: jest.fn().mockResolvedValue({ data: [] }),
       findOne: jest.fn().mockResolvedValue({ id: 'obligation-1' }),
       pay: jest.fn().mockResolvedValue({ id: 'obligation-1', status: 'PAID' }),
@@ -29,7 +29,9 @@ describe('ObligationsController', () => {
   });
 
   it('lista, obtiene próximas y genera obligaciones', async () => {
-    await expect(controller.findAll(user, {} as ObligationQueryDto)).resolves.toEqual({ data: [] });
+    await expect(controller.findAll(user, {} as ObligationQueryDto)).resolves.toEqual({
+      data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    });
     await expect(controller.upcoming(user)).resolves.toEqual({ data: [] });
     await expect(controller.generate(user)).resolves.toEqual({ generated: 1, skipped: 0 });
   });
