@@ -164,7 +164,7 @@ describe('AuthController', () => {
     );
   });
 
-  it('POST /auth/login es público y devuelve tokens y usuario dentro de data', async () => {
+  it('POST /auth/login es público, devuelve usuario y establece cookies', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
       .set('User-Agent', 'controller-test')
@@ -172,9 +172,9 @@ describe('AuthController', () => {
       .expect(200)
       .expect({
         data: {
-          accessToken: 'access-token',
-          refreshToken: 'refresh-token',
-          user: { id: 'user-1', email: 'test@example.com', name: 'Test User' },
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
         },
       });
     const cookieHeaders = Array.isArray(response.headers['set-cookie'])
@@ -194,23 +194,18 @@ describe('AuthController', () => {
     );
   });
 
-  it('POST /auth/refresh es público y devuelve tokens dentro de data', async () => {
+  it('POST /auth/refresh es público y devuelve una respuesta sin tokens', async () => {
     await request(app.getHttpServer())
       .post('/auth/refresh')
       .set('Cookie', 'refreshToken=old-refresh-token')
       .expect(200)
-      .expect({
-        data: {
-          accessToken: 'new-access-token',
-          refreshToken: 'new-refresh-token',
-        },
-      });
+      .expect({ data: null });
   });
 
-  it('POST /auth/refresh conserva el fallback del body y rota las cookies', async () => {
+  it('POST /auth/refresh rota las cookies usando únicamente la cookie de refresh', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/refresh')
-      .send({ refreshToken: 'body-refresh-token' })
+      .set('Cookie', 'refreshToken=body-refresh-token')
       .expect(200);
 
     expect(authService.refresh).toHaveBeenCalledWith(

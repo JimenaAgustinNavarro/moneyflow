@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ApiError } from '@/lib/api-client';
+import { getUser } from '@/lib/auth-storage';
 import type { Account } from '@/types/account';
 import type { CreateTransferInput, Transfer } from '@/types/transfer';
 
@@ -50,9 +51,13 @@ function getBrowserTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
+function getUserTimezone(): string {
+  return getUser()?.timezone || getBrowserTimezone();
+}
+
 function getTodayInBrowser(): string {
   const parts = new Intl.DateTimeFormat('en', {
-    timeZone: getBrowserTimezone(),
+    timeZone: getUserTimezone(),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -64,7 +69,7 @@ function getTodayInBrowser(): string {
 }
 
 function getBrowserOffset(date: string): string {
-  const timeZone = getBrowserTimezone();
+  const timeZone = getUserTimezone();
   const [year, month, day] = date.split('-').map(Number);
   const localMidnightAsUtc = Date.UTC(year, month - 1, day);
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -99,7 +104,7 @@ function dateStringToInputValue(value: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return getTodayInBrowser();
 
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: getBrowserTimezone(),
+    timeZone: getUserTimezone(),
   }).format(date);
 }
 

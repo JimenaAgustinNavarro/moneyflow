@@ -60,11 +60,11 @@ describe('Auth DTOs', () => {
     expect(await validate(longName)).not.toHaveLength(0);
   });
 
-  it('rechaza refresh token vacío en RefreshDto y LogoutDto', async () => {
+  it('permite DTO vacíos cuando tokens llegan exclusivamente por cookies', async () => {
     const refresh = plainToInstance(RefreshDto, { refreshToken: '' });
     const logout = plainToInstance(LogoutDto, { refreshToken: '' });
 
-    expect(await validate(refresh)).not.toHaveLength(0);
-    expect(await validate(logout)).not.toHaveLength(0);
+    expect(await validate(refresh)).toHaveLength(0);
+    expect(await validate(logout)).toHaveLength(0);
   });
 });

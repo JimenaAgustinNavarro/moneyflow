@@ -15,7 +15,7 @@ import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
-import { LoginDto, LogoutDto, RefreshDto, RegisterDto } from './dto';
+import { LoginDto, RegisterDto } from './dto';
 import { AuthenticatedUser } from './types/jwt-payload.type';
 
 function cookieOptions(maxAge: number) {
@@ -60,18 +60,17 @@ export class AuthController {
       result.refreshToken,
       cookieOptions(30 * 24 * 60 * 60 * 1000),
     );
-    return { data: result };
+    return { data: result.user };
   }
 
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
-    @Body() dto: RefreshDto | undefined,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const refreshToken = request.cookies?.refreshToken ?? dto?.refreshToken;
+    const refreshToken = request.cookies?.refreshToken;
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token inválido.');
     }
@@ -87,18 +86,17 @@ export class AuthController {
       result.refreshToken,
       cookieOptions(30 * 24 * 60 * 60 * 1000),
     );
-    return { data: result };
+    return { data: null };
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(
     @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: LogoutDto | undefined,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    const refreshToken = request.cookies?.refreshToken ?? dto?.refreshToken;
+    const refreshToken = request.cookies?.refreshToken;
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token inválido.');
     }

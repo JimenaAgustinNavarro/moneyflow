@@ -13,13 +13,11 @@ describe('api-client', () => {
     localStorage.clear();
   });
 
-  it('loginUser devuelve la sesión cuando la respuesta es exitosa', async () => {
+  it('loginUser establece la sesión mediante cookies sin leer tokens JSON', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
         JSON.stringify({
           data: {
-            accessToken: 'access-123',
-            refreshToken: 'refresh-123',
             user: { id: '1', email: 'ana@example.com', name: 'Ana' },
           },
         }),
@@ -40,8 +38,7 @@ describe('api-client', () => {
         credentials: 'include',
       }),
     );
-    expect(result.user.email).toBe('ana@example.com');
-    expect(result.accessToken).toBe('access-123');
+    expect(result).toBeUndefined();
   });
 
   it('loginUser transforma errores 401 en un mensaje amigable', async () => {
@@ -148,11 +145,9 @@ describe('api-client', () => {
   });
 
   it('authenticatedRequest devuelve los datos de una request protegida exitosa', async () => {
-    const { saveAuthSession } = await import('@/lib/auth-storage');
-    saveAuthSession({
-      accessToken: 'access-123',
-      refreshToken: 'refresh-123',
-      user: { id: '1', email: 'ana@example.com', name: 'Ana' },
+    const { saveAuthUser } = await import('@/lib/auth-storage');
+    saveAuthUser({
+      id: '1', email: 'ana@example.com', name: 'Ana', timezone: 'America/Lima',
     });
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ data: { name: 'Ana' } }), {
@@ -169,11 +164,9 @@ describe('api-client', () => {
   });
 
   it('renueva la sesión y reintenta una request protegida tras 401', async () => {
-    const { saveAuthSession } = await import('@/lib/auth-storage');
-    saveAuthSession({
-      accessToken: 'expired-access',
-      refreshToken: 'refresh-123',
-      user: { id: '1', email: 'ana@example.com', name: 'Ana' },
+    const { saveAuthUser } = await import('@/lib/auth-storage');
+    saveAuthUser({
+      id: '1', email: 'ana@example.com', name: 'Ana', timezone: 'America/Lima',
     });
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
@@ -218,11 +211,9 @@ describe('api-client', () => {
     const browserMock = { localStorage: storage, location: { href: '' } };
     vi.stubGlobal('window', browserMock);
 
-    const { saveAuthSession } = await import('@/lib/auth-storage');
-    saveAuthSession({
-      accessToken: 'expired-access',
-      refreshToken: 'invalid-refresh',
-      user: { id: '1', email: 'ana@example.com', name: 'Ana' },
+    const { saveAuthUser } = await import('@/lib/auth-storage');
+    saveAuthUser({
+      id: '1', email: 'ana@example.com', name: 'Ana', timezone: 'America/Lima',
     });
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
@@ -248,11 +239,9 @@ describe('api-client', () => {
   });
 
   it('comparte un único refresh entre requests 401 concurrentes', async () => {
-    const { saveAuthSession } = await import('@/lib/auth-storage');
-    saveAuthSession({
-      accessToken: 'expired-access',
-      refreshToken: 'refresh-123',
-      user: { id: '1', email: 'ana@example.com', name: 'Ana' },
+    const { saveAuthUser } = await import('@/lib/auth-storage');
+    saveAuthUser({
+      id: '1', email: 'ana@example.com', name: 'Ana', timezone: 'America/Lima',
     });
 
     let releaseRefresh: () => void = () => {};

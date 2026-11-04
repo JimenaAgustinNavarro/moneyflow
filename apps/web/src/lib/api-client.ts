@@ -1,4 +1,4 @@
-import type { AuthSession, LoginInput, RegisterInput, RegisterResult } from '@/types/auth';
+import type { LoginInput, RegisterInput, RegisterResult } from '@/types/auth';
 import type { AuthUser } from '@/types/auth';
 import { clearAuthSession } from '@/lib/auth-storage';
 
@@ -196,8 +196,8 @@ export async function refreshSessionTokens(): Promise<void> {
   await getRefreshPromise();
 }
 
-export async function loginUser(input: LoginInput): Promise<AuthSession> {
-  return request<AuthSession>('/auth/login', {
+export async function loginUser(input: LoginInput): Promise<void> {
+  await request('/auth/login', {
     method: 'POST',
     body: JSON.stringify(input),
   });

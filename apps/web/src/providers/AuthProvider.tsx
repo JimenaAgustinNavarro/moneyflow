@@ -22,10 +22,9 @@ import {
 import {
   clearAuthSession,
   readAuthSession,
-  saveAuthSession,
   saveAuthUser,
 } from '@/lib/auth-storage';
-import type { AuthSession, AuthUser, LoginInput, RegisterInput } from '@/types/auth';
+import type { AuthUser, LoginInput, RegisterInput } from '@/types/auth';
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -87,18 +86,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hydrateSession();
   }, [hydrateSession]);
 
-  const persistSession = useCallback((session: AuthSession) => {
-    saveAuthSession(session);
-    setUser(session.user);
+  const persistUser = useCallback((user: AuthUser) => {
+    saveAuthUser(user);
+    setUser(user);
   }, []);
 
   const login = useCallback(
     async (input: LoginInput) => {
-      const session = await loginUser(input);
-      persistSession(session);
+      await loginUser(input);
+      const currentUser = await getCurrentUser();
+      persistUser(currentUser);
       setAuthError(null);
     },
-    [persistSession],
+    [persistUser],
   );
 
   const register = useCallback(async (input: RegisterInput) => {

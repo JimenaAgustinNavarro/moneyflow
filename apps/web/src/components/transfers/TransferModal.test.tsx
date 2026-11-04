@@ -91,6 +91,19 @@ describe('TransferModal', () => {
     expect(screen.getByLabelText('Fecha')).toHaveValue('2026-10-14');
   });
 
+  it('usa America/Lima almacenada cuando difiere del timezone del navegador', () => {
+    localStorage.setItem(
+      'moneyflow_user',
+      JSON.stringify({ id: '1', email: 'ana@example.com', name: 'Ana', timezone: 'America/Lima' }),
+    );
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
+
+    renderModal();
+
+    expect(screen.getByLabelText('Fecha')).toHaveValue('2026-10-14');
+  });
+
   it('carga los campos de la transferencia v2 al editar', () => {
     render(
       <TransferModal

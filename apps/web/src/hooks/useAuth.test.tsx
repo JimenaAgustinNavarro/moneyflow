@@ -2,7 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { saveAuthSession } from '@/lib/auth-storage';
+import { saveAuthUser } from '@/lib/auth-storage';
 
 const pushSpy = vi.fn();
 let AuthProvider: typeof import('@/providers/AuthProvider').AuthProvider;
@@ -50,11 +50,7 @@ describe('useAuth', () => {
       ),
     );
 
-    saveAuthSession({
-      accessToken: 'access-123',
-      refreshToken: 'refresh-123',
-      user: { id: '1', email: 'ana@example.com', name: 'Ana' },
-    });
+    saveAuthUser({ id: '1', email: 'ana@example.com', name: 'Ana', timezone: 'America/Lima' });
 
     render(
       <AuthProvider>
@@ -76,11 +72,7 @@ describe('useAuth', () => {
       }),
     );
 
-    saveAuthSession({
-      accessToken: 'access-123',
-      refreshToken: 'refresh-123',
-      user: { id: '1', email: 'ana@example.com', name: 'Ana' },
-    });
+    saveAuthUser({ id: '1', email: 'ana@example.com', name: 'Ana', timezone: 'America/Lima' });
 
     render(
       <AuthProvider>
@@ -111,11 +103,7 @@ describe('useAuth', () => {
       });
     });
 
-    saveAuthSession({
-      accessToken: 'access-123',
-      refreshToken: 'refresh-123',
-      user: { id: '1', email: 'ana@example.com', name: 'Ana' },
-    });
+    saveAuthUser({ id: '1', email: 'ana@example.com', name: 'Ana', timezone: 'America/Lima' });
 
     function LogoutRedirectHarness() {
       const { logout } = useAuthContext();
