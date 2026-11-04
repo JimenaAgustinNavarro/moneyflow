@@ -8,10 +8,11 @@ import { DashboardService } from './dashboard.service';
 const userId = 'user-1';
 const accountId = 'account-1';
 const date = new Date('2026-10-15T15:00:00.000Z');
-const account: Pick<Account, 'id' | 'initialBalance' | 'initialBalanceAt'> = {
+const account: Pick<Account, 'id' | 'initialBalance' | 'initialBalanceAt' | 'currency'> = {
   id: accountId,
   initialBalance: new Prisma.Decimal('100.00'),
   initialBalanceAt: new Date('2026-01-01T00:00:00.000Z'),
+  currency: 'PEN',
 };
 
 function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
@@ -74,6 +75,11 @@ describe('DashboardService', () => {
     expect(result.topCategories).toEqual([]);
     expect(result.recentTransactions).toEqual([]);
     expect(result.committedMoney).toBe('0.00');
+    expect(result.balancesByCurrency).toEqual({});
+    expect(result.committedMoneyByCurrency).toEqual({});
+    expect(result.periodIncomeByCurrency).toEqual({});
+    expect(result.periodExpenseByCurrency).toEqual({});
+    expect(result.netFlowByCurrency).toEqual({});
     expect(result.upcomingPayments).toEqual([]);
     expect(result.topBudgets).toEqual([]);
   });
@@ -344,11 +350,81 @@ describe('DashboardService', () => {
     const result = await service.summary(userId, new DashboardQueryDto());
 
     expect(result.totalBalance).toBe('145.00');
+    expect(result.balancesByCurrency).toEqual({ PEN: '145.00' });
     expect(prisma.account.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { userId, deletedAt: null, archived: false },
       }),
     );
+  });
+
+  it('agrupa balances por moneda sin convertir las cuentas', async () => {
+    prisma.account.findMany.mockResolvedValue([
+      {
+        id: 'pen-account',
+        initialBalance: new Prisma.Decimal('100.00'),
+        initialBalanceAt: new Date('2026-01-01T00:00:00.000Z'),
+        currency: 'PEN',
+      },
+      {
+        id: 'usd-account',
+        initialBalance: new Prisma.Decimal('200.00'),
+        initialBalanceAt: new Date('2026-01-01T00:00:00.000Z'),
+        currency: 'USD',
+      },
+    ]);
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.balancesByCurrency).toEqual({ PEN: '100.00', USD: '200.00' });
+    expect(result.totalBalance).toBe('300.00');
+  });
+
+  it('agrupa el dinero comprometido por moneda restando los pagos', async () => {
+    prisma.obligation.findMany
+      .mockResolvedValueOnce([
+        {
+          amount: new Prisma.Decimal('125.50'),
+          currency: 'PEN',
+          payments: [{ amount: new Prisma.Decimal('25.50') }],
+        },
+        {
+          amount: new Prisma.Decimal('80.00'),
+          currency: 'USD',
+          payments: [{ amount: new Prisma.Decimal('10.00') }],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.committedMoneyByCurrency).toEqual({ PEN: '100.00', USD: '70.00' });
+    expect(result.committedMoney).toBe('170.00');
+  });
+
+  it('agrupa ingresos, gastos y flujo neto por moneda', async () => {
+    prisma.transaction.groupBy.mockImplementation(({ by }) => {
+      if (by[0] === 'currency') {
+        return Promise.resolve([]);
+      }
+      return Promise.resolve([]);
+    });
+    prisma.transaction.groupBy
+      .mockResolvedValueOnce([
+        { currency: 'PEN', _sum: { amount: new Prisma.Decimal('100.00') } },
+        { currency: 'USD', _sum: { amount: new Prisma.Decimal('50.00') } },
+      ])
+      .mockResolvedValueOnce([
+        { currency: 'PEN', _sum: { amount: new Prisma.Decimal('40.00') } },
+        { currency: 'USD', _sum: { amount: new Prisma.Decimal('20.00') } },
+      ])
+      .mockResolvedValue([]);
+
+    const result = await service.summary(userId, new DashboardQueryDto());
+
+    expect(result.periodIncomeByCurrency).toEqual({ PEN: '100.00', USD: '50.00' });
+    expect(result.periodExpenseByCurrency).toEqual({ PEN: '40.00', USD: '20.00' });
+    expect(result.netFlowByCurrency).toEqual({ PEN: '60.00', USD: '30.00' });
   });
 
   it('respeta accountId en cuentas, métricas y transacciones recientes', async () => {

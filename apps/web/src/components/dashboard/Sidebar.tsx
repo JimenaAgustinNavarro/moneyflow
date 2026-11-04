@@ -14,6 +14,7 @@ import {
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ResponsiveSidebar } from '@/components/layout/ResponsiveSidebar';
 
 const navigationItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, enabled: true },
@@ -31,7 +32,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-16 shrink-0 flex-col border-r border-border/80 bg-card/90 backdrop-blur-sm md:w-64">
+    <ResponsiveSidebar>
       <div className="flex h-16 items-center border-b border-border/80 px-6">
         <span className="text-lg font-semibold tracking-tight text-primary">MoneyFlow</span>
       </div>
@@ -80,6 +81,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-    </aside>
+    </ResponsiveSidebar>
   );
 }

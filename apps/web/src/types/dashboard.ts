@@ -58,9 +58,14 @@ export interface DashboardSummary {
   periodIncome: string;
   periodExpense: string;
   netFlow: string;
+  balancesByCurrency: Record<string, string>;
+  periodIncomeByCurrency: Record<string, string>;
+  periodExpenseByCurrency: Record<string, string>;
+  netFlowByCurrency: Record<string, string>;
   topCategories: TopCategory[];
   recentTransactions: RecentTransaction[];
   committedMoney: string;
+  committedMoneyByCurrency: Record<string, string>;
   upcomingPayments: UpcomingPayment[];
   topBudgets: TopBudget[];
 }

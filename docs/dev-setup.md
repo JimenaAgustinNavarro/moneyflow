@@ -2,7 +2,7 @@
 
 ## Requisitos
 
-- Node 22 LTS (verificar con `node --version`).
+- Node 24.15 o superior (verificar con `node --version`).
 - npm 10 o superior.
 - Docker Desktop para PostgreSQL.
 - En Windows, PowerShell como terminal principal.

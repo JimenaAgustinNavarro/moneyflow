@@ -54,15 +54,24 @@ interface TopBudget {
   alertThreshold: number;
 }
 
+interface CurrencyTotals {
+  [currency: string]: string;
+}
+
 export interface DashboardSummary {
   period: { from: string; to: string };
   totalBalance: string;
   periodIncome: string;
   periodExpense: string;
   netFlow: string;
+  balancesByCurrency: CurrencyTotals;
+  periodIncomeByCurrency: CurrencyTotals;
+  periodExpenseByCurrency: CurrencyTotals;
+  netFlowByCurrency: CurrencyTotals;
   topCategories: TopCategory[];
   recentTransactions: RecentTransaction[];
   committedMoney: string;
+  committedMoneyByCurrency: CurrencyTotals;
   upcomingPayments: UpcomingPayment[];
   topBudgets: TopBudget[];
 }
@@ -71,6 +80,7 @@ interface BalanceAccount {
   id: string;
   initialBalance: Prisma.Decimal;
   initialBalanceAt: Date;
+  currency: string;
 }
 
 const LIMA_OFFSET_HOURS = 5;
@@ -88,6 +98,8 @@ export class DashboardService {
       accounts,
       incomeResult,
       expenseResult,
+      incomeGroups,
+      expenseGroups,
       categoryGroups,
       recentTransactions,
       committedObligations,
@@ -101,7 +113,7 @@ export class DashboardService {
             archived: false,
             ...(query.accountId ? { id: query.accountId } : {}),
           },
-          select: { id: true, initialBalance: true, initialBalanceAt: true },
+          select: { id: true, initialBalance: true, initialBalanceAt: true, currency: true },
         }),
         this.prisma.transaction.aggregate({
           where: {
@@ -115,6 +127,30 @@ export class DashboardService {
           _sum: { amount: true },
         }),
         this.prisma.transaction.aggregate({
+          where: {
+            userId,
+            type: 'EXPENSE',
+            status: 'CONFIRMED',
+            deletedAt: null,
+            occurredAt: { gte: from, lte: to },
+            ...accountFilter,
+          },
+          _sum: { amount: true },
+        }),
+        this.prisma.transaction.groupBy({
+          by: ['currency'],
+          where: {
+            userId,
+            type: 'INCOME',
+            status: 'CONFIRMED',
+            deletedAt: null,
+            occurredAt: { gte: from, lte: to },
+            ...accountFilter,
+          },
+          _sum: { amount: true },
+        }),
+        this.prisma.transaction.groupBy({
+          by: ['currency'],
           where: {
             userId,
             type: 'EXPENSE',
@@ -224,6 +260,14 @@ export class DashboardService {
 
     const income = new Prisma.Decimal(incomeResult._sum.amount ?? 0);
     const expense = new Prisma.Decimal(expenseResult._sum.amount ?? 0);
+    const periodIncomeByCurrency = this.serializeCurrencyGroups(incomeGroups);
+    const periodExpenseByCurrency = this.serializeCurrencyGroups(expenseGroups);
+    const netFlowByCurrency = this.calculateNetFlowByCurrency(
+      periodIncomeByCurrency,
+      periodExpenseByCurrency,
+    );
+    const committedMoneyByCurrency = this.serializeCommittedMoney(committedObligations);
+    const totalBalance = await this.calculateTotalBalance(userId, accounts);
     const budgetUsage = await Promise.all(
       budgets.map(async (budget): Promise<TopBudget> => {
         const categoryIds = budget.categories.map((relation) => relation.categoryId);
@@ -262,10 +306,14 @@ export class DashboardService {
 
     return {
       period: { from: this.formatLimaIso(from), to: this.formatLimaIso(to) },
-      totalBalance: await this.calculateTotalBalance(userId, accounts),
+      totalBalance: totalBalance.total.toFixed(2),
       periodIncome: income.toFixed(2),
       periodExpense: expense.toFixed(2),
       netFlow: income.minus(expense).toFixed(2),
+      balancesByCurrency: this.serializeDecimals(totalBalance.byCurrency),
+      periodIncomeByCurrency,
+      periodExpenseByCurrency,
+      netFlowByCurrency,
       topCategories: categoryGroups.flatMap((group) => {
         if (group.categoryId === null) return [];
         return [
@@ -290,6 +338,7 @@ export class DashboardService {
           : null,
       })),
       committedMoney: committedMoney.toFixed(2),
+      committedMoneyByCurrency,
       upcomingPayments: upcomingObligations.slice(0, 5).map((obligation) => {
         const paid = (obligation.payments ?? []).reduce(
           (paymentSum, payment) => paymentSum.add(payment.amount),
@@ -363,8 +412,63 @@ export class DashboardService {
     return `${limaDate.toISOString().slice(0, -1)}-05:00`;
   }
 
-  private async calculateTotalBalance(userId: string, accounts: BalanceAccount[]): Promise<string> {
-    if (accounts.length === 0) return '0.00';
+  private serializeCurrencyGroups(
+    groups: Array<{ currency?: string | null; _sum: { amount: Prisma.Decimal | null } }>,
+  ): CurrencyTotals {
+    const serialized: CurrencyTotals = {};
+    for (const group of groups) {
+      const currency = group.currency ?? 'PEN';
+      const amount = new Prisma.Decimal(group._sum.amount ?? 0);
+      serialized[currency] = new Prisma.Decimal(serialized[currency] ?? 0).plus(amount).toFixed(2);
+    }
+    return serialized;
+  }
+
+  private calculateNetFlowByCurrency(
+    income: CurrencyTotals,
+    expense: CurrencyTotals,
+  ): CurrencyTotals {
+    const currencies = new Set([...Object.keys(income), ...Object.keys(expense)]);
+    const result: CurrencyTotals = {};
+    for (const currency of currencies) {
+      result[currency] = new Prisma.Decimal(income[currency] ?? 0)
+        .minus(new Prisma.Decimal(expense[currency] ?? 0))
+        .toFixed(2);
+    }
+    return result;
+  }
+
+  private serializeCommittedMoney(obligations: Array<{
+    amount: Prisma.Decimal;
+    currency?: string | null;
+    payments?: Array<{ amount: Prisma.Decimal }>;
+  }>): CurrencyTotals {
+    const totals: Record<string, Prisma.Decimal> = {};
+    for (const obligation of obligations) {
+      const currency = obligation.currency ?? 'PEN';
+      const paid = (obligation.payments ?? []).reduce(
+        (sum, payment) => sum.add(payment.amount),
+        new Prisma.Decimal(0),
+      );
+      const remaining = Prisma.Decimal.max(obligation.amount.sub(paid), 0);
+      totals[currency] = (totals[currency] ?? new Prisma.Decimal(0)).plus(remaining);
+    }
+    return this.serializeDecimals(totals);
+  }
+
+  private serializeDecimals(totals: Record<string, Prisma.Decimal>): CurrencyTotals {
+    return Object.fromEntries(
+      Object.entries(totals).map(([currency, amount]) => [currency, amount.toFixed(2)]),
+    );
+  }
+
+  private async calculateTotalBalance(
+    userId: string,
+    accounts: BalanceAccount[],
+  ): Promise<{ total: Prisma.Decimal; byCurrency: Record<string, Prisma.Decimal> }> {
+    if (accounts.length === 0) {
+      return { total: new Prisma.Decimal(0), byCurrency: {} };
+    }
 
     // FIX-DASHBOARD-02: mantener este cálculo alineado con AccountsService.calculateBalance.
     const accountIds = accounts.map((account) => account.id);
@@ -398,7 +502,7 @@ export class DashboardService {
       }),
     ]);
 
-    let total = new Prisma.Decimal(0);
+    const byCurrency: Record<string, Prisma.Decimal> = {};
     for (const account of accounts) {
       let balance = new Prisma.Decimal(account.initialBalance);
       for (const transaction of transactions) {
@@ -421,9 +525,14 @@ export class DashboardService {
           balance = balance.plus(transfer.amount);
         }
       }
-      total = total.plus(balance);
+      const currency = account.currency ?? 'PEN';
+      byCurrency[currency] = (byCurrency[currency] ?? new Prisma.Decimal(0)).plus(balance);
     }
 
-    return total.toFixed(2);
+    const total = Object.values(byCurrency).reduce(
+      (sum, amount) => sum.plus(amount),
+      new Prisma.Decimal(0),
+    );
+    return { total, byCurrency };
   }
 }
