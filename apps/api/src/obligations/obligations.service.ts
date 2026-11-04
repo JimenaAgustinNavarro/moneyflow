@@ -8,6 +8,7 @@ import {
   ObligationPaymentStatus,
   ObligationStatus,
   Prisma,
+  RecurrenceFrequency,
   TransactionStatus,
   TransactionType,
 } from '@prisma/client';
@@ -121,6 +122,40 @@ export class ObligationsService {
     const recurrence = await tx.recurrence.findFirst({ where: { id: recurrenceId, userId, deletedAt: null, active: true } });
     if (!recurrence) throw new NotFoundException('Recurrencia no encontrada.');
     return recurrence;
+  }
+
+  private advanceByFrequency(date: Date, frequency: RecurrenceFrequency): Date {
+    const next = new Date(date);
+    switch (frequency) {
+      case RecurrenceFrequency.WEEKLY:
+        next.setUTCDate(next.getUTCDate() + 7);
+        break;
+      case RecurrenceFrequency.BIWEEKLY:
+        next.setUTCDate(next.getUTCDate() + 14);
+        break;
+      case RecurrenceFrequency.MONTHLY:
+        next.setUTCMonth(next.getUTCMonth() + 1);
+        break;
+      case RecurrenceFrequency.QUARTERLY:
+        next.setUTCMonth(next.getUTCMonth() + 3);
+        break;
+      case RecurrenceFrequency.YEARLY:
+        next.setUTCFullYear(next.getUTCFullYear() + 1);
+        break;
+    }
+    return next;
+  }
+
+  private calculateDueDate(
+    occurrenceDate: Date,
+    dayOfPeriod: number | null,
+  ): Date {
+    const day = dayOfPeriod ?? occurrenceDate.getUTCDate();
+    const year = occurrenceDate.getUTCFullYear();
+    const month = occurrenceDate.getUTCMonth();
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const clampedDay = Math.min(day, lastDay);
+    return new Date(Date.UTC(year, month, clampedDay, 5, 0, 0));
   }
 
   async create(userId: string, dto: CreateObligationDto) {
@@ -349,46 +384,58 @@ export class ObligationsService {
     return this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const limaNow = new Date(now.getTime() - LIMA_OFFSET_MS);
-      const year = limaNow.getUTCFullYear();
-      const month = limaNow.getUTCMonth();
-      const periodStart = new Date(Date.UTC(year, month, 1));
-      const periodEnd = new Date(Date.UTC(year, month + 1, 0));
       const recurrences = await tx.recurrence.findMany({
         where: { userId, active: true, deletedAt: null },
       });
       let generated = 0;
       let skipped = 0;
+      const maxIterations = 120000;
       for (const recurrence of recurrences) {
-        if (recurrence.startDate > periodEnd || (recurrence.endDate && recurrence.endDate < periodStart)) continue;
-        const dueDay = recurrence.dayOfPeriod ?? new Date(recurrence.startDate.getTime() - LIMA_OFFSET_MS).getUTCDate();
-        const day = Math.min(dueDay, periodEnd.getUTCDate());
-        const dueDate = new Date(Date.UTC(year, month, day, 5, 0, 0));
-        const existing = await tx.obligation.findUnique({
-          where: { recurrenceId_periodStart: { recurrenceId: recurrence.id, periodStart } },
-        });
-        if (existing) {
-          skipped += 1;
-          continue;
+        let occurrenceDate = new Date(recurrence.startDate);
+        let iterations = 0;
+        while (occurrenceDate <= limaNow && iterations < maxIterations) {
+          iterations += 1;
+          if (recurrence.endDate && occurrenceDate > recurrence.endDate) break;
+
+          const periodStart = new Date(occurrenceDate);
+          const periodEnd = new Date(Date.UTC(
+            occurrenceDate.getUTCFullYear(),
+            occurrenceDate.getUTCMonth() + 1,
+            0,
+          ));
+          const dueDate = this.calculateDueDate(occurrenceDate, recurrence.dayOfPeriod);
+          const existing = await tx.obligation.findUnique({
+            where: {
+              recurrenceId_periodStart: {
+                recurrenceId: recurrence.id,
+                periodStart,
+              },
+            },
+          });
+          if (existing) {
+            skipped += 1;
+          } else {
+            await tx.obligation.create({
+              data: {
+                userId,
+                recurrenceId: recurrence.id,
+                accountId: recurrence.accountId,
+                categoryId: recurrence.categoryId,
+                name: recurrence.name,
+                type: recurrence.type,
+                amount: recurrence.amount,
+                currency: recurrence.currency,
+                description: recurrence.description,
+                dueDate,
+                periodStart,
+                periodEnd,
+                status: ObligationStatus.PENDING,
+              },
+            });
+            generated += 1;
+          }
+          occurrenceDate = this.advanceByFrequency(occurrenceDate, recurrence.frequency);
         }
-        await tx.obligation.create({
-          data: {
-            userId,
-            recurrenceId: recurrence.id,
-            accountId: recurrence.accountId,
-            categoryId: recurrence.categoryId,
-            name: recurrence.name,
-            type: recurrence.type,
-            amount: recurrence.amount,
-            currency: recurrence.currency,
-            description: recurrence.description,
-            dueDate,
-            periodStart,
-            periodEnd,
-            status: ObligationStatus.PENDING,
-          },
-        });
-        await tx.recurrence.update({ where: { id: recurrence.id }, data: { lastGeneratedAt: now } });
-        generated += 1;
       }
       return { generated, skipped };
     });

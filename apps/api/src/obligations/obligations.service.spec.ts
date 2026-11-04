@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { ObligationStatus, Prisma } from '@prisma/client';
+import { ObligationStatus, Prisma, RecurrenceFrequency } from '@prisma/client';
 import { ObligationsService } from './obligations.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -26,7 +26,7 @@ describe('ObligationsService', () => {
       account: { findFirst: jest.fn().mockResolvedValue({ id: 'account-1' }) },
       category: { findFirst: jest.fn() },
       recurrence: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
-      obligation: { create: jest.fn().mockImplementation(({ data }) => Promise.resolve(obligation(data))), findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn().mockResolvedValue(0), update: jest.fn() },
+      obligation: { create: jest.fn().mockImplementation(({ data }) => Promise.resolve(obligation(data))), findFirst: jest.fn(), findMany: jest.fn(), findUnique: jest.fn().mockResolvedValue(null), count: jest.fn().mockResolvedValue(0), update: jest.fn() },
       transaction: { create: jest.fn() }, obligationPayment: { create: jest.fn() },
     };
     prisma = {
@@ -95,6 +95,113 @@ describe('ObligationsService', () => {
   it('genera sin duplicar', async () => {
     tx.recurrence.findMany.mockResolvedValue([]);
     await expect(service.generate('user-1')).resolves.toEqual({ generated: 0, skipped: 0 });
+  });
+
+  const recurrence = (overrides: Record<string, unknown> = {}) => ({
+    id: 'recurrence-1',
+    userId: 'user-1',
+    name: 'Luz',
+    type: 'EXPENSE',
+    amount: new Prisma.Decimal('100.00'),
+    currency: 'PEN',
+    description: null,
+    accountId: 'account-1',
+    categoryId: null,
+    frequency: RecurrenceFrequency.MONTHLY,
+    dayOfPeriod: null,
+    startDate: new Date('2026-08-01T05:00:00.000Z'),
+    endDate: null,
+    active: true,
+    deletedAt: null,
+    ...overrides,
+  });
+
+  it.each([
+    [RecurrenceFrequency.MONTHLY, new Date('2026-09-01T05:00:00.000Z'), 3],
+    [RecurrenceFrequency.WEEKLY, new Date('2026-10-14T05:00:00.000Z'), 3],
+    [RecurrenceFrequency.BIWEEKLY, new Date('2026-09-23T05:00:00.000Z'), 3],
+    [RecurrenceFrequency.QUARTERLY, new Date('2026-05-01T05:00:00.000Z'), 3],
+    [RecurrenceFrequency.YEARLY, new Date('2024-11-01T05:00:00.000Z'), 3],
+  ])('genera el backfill usando la frecuencia %s', async (frequency, startDate, expectedCount) => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-11-03T12:00:00.000Z'));
+    tx.recurrence.findMany.mockResolvedValue([recurrence({ frequency, startDate })]);
+
+    const result = await service.generate('user-1');
+
+    expect(tx.obligation.create).toHaveBeenCalledTimes(expectedCount);
+    expect(result.generated).toBe(expectedCount);
+    expect(result.skipped).toBe(0);
+    jest.useRealTimers();
+  });
+
+  it('respeta endDate y genera hasta ella', async () => {
+    tx.recurrence.findMany.mockResolvedValue([
+      recurrence({
+        frequency: RecurrenceFrequency.MONTHLY,
+        startDate: new Date('2026-08-01T05:00:00.000Z'),
+        endDate: new Date('2026-10-31T05:00:00.000Z'),
+      }),
+    ]);
+
+    const result = await service.generate('user-1');
+
+    expect(result.generated).toBe(3);
+  });
+
+  it('no genera recurrencias iniciadas en el futuro', async () => {
+    tx.recurrence.findMany.mockResolvedValue([
+      recurrence({ startDate: new Date('2099-01-01T05:00:00.000Z') }),
+    ]);
+
+    await expect(service.generate('user-1')).resolves.toEqual({ generated: 0, skipped: 0 });
+  });
+
+  it('es idempotente con periodStart existente', async () => {
+    tx.recurrence.findMany.mockResolvedValue([
+      recurrence({
+        startDate: new Date('2026-10-01T05:00:00.000Z'),
+      }),
+    ]);
+    tx.obligation.findUnique.mockResolvedValue(obligation());
+
+    await expect(service.generate('user-1')).resolves.toEqual(
+      expect.objectContaining({ generated: 0, skipped: expect.any(Number) }),
+    );
+    expect(tx.obligation.create).not.toHaveBeenCalled();
+  });
+
+  it('usa periodStart igual a la fecha de ocurrencia semanal y fija dueDate desde dayOfPeriod', async () => {
+    tx.recurrence.findMany.mockResolvedValue([
+      recurrence({
+        frequency: RecurrenceFrequency.WEEKLY,
+        dayOfPeriod: 31,
+        startDate: new Date('2026-10-01T05:00:00.000Z'),
+      }),
+    ]);
+
+    await service.generate('user-1');
+
+    const creation = tx.obligation.create.mock.calls[0][0];
+    expect(creation.data.periodStart).toEqual(new Date('2026-10-01T05:00:00.000Z'));
+    expect(creation.data.dueDate).toEqual(new Date(Date.UTC(2026, 9, 31, 5, 0, 0)));
+  });
+
+  it('no genera antes de startDate ni duplica una ocurrencia existente', async () => {
+    tx.recurrence.findMany.mockResolvedValue([
+      recurrence({ startDate: new Date('2026-10-01T05:00:00.000Z') }),
+    ]);
+    tx.obligation.findUnique
+      .mockResolvedValueOnce(obligation())
+      .mockResolvedValueOnce(null);
+
+    const result = await service.generate('user-1');
+
+    expect(tx.obligation.create).toHaveBeenCalled();
+    expect(result.skipped).toBeGreaterThanOrEqual(1);
+    expect(tx.obligation.create.mock.calls.every(({ data }: { data: { periodStart: Date } }) =>
+      data.periodStart >= new Date('2026-10-01T05:00:00.000Z'),
+    )).toBe(true);
   });
 
   it('actualiza, elimina, restaura y obtiene una obligación', async () => {

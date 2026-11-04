@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { BudgetStatus, Prisma, TransactionStatus, TransactionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BudgetQueryDto, CopyBudgetDto, CreateBudgetDto, UpdateBudgetDto } from './dto';
@@ -90,6 +90,51 @@ export class BudgetsService {
     return categories;
   }
 
+  private async validateNoOverlap(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    name: string,
+    startDate: Date,
+    endDate: Date | null,
+    categoryIds: string[],
+    excludedBudgetId?: string,
+  ): Promise<void> {
+    if (categoryIds.length === 0) return;
+
+    const normalizedName = name.trim().toLowerCase();
+    const conflicting = await tx.budget.findFirst({
+      where: {
+        userId,
+        active: true,
+        deletedAt: null,
+        ...(excludedBudgetId && { id: { not: excludedBudgetId } }),
+        ...(endDate && { startDate: { lte: endDate } }),
+        OR: [
+          { endDate: null },
+          { endDate: { gte: startDate } },
+        ],
+        categories: {
+          some: {
+            deletedAt: null,
+            categoryId: { in: categoryIds },
+          },
+        },
+      },
+      include: {
+        categories: {
+          where: { deletedAt: null },
+          include: { category: { select: { id: true, name: true } } },
+        },
+      },
+    });
+
+    if (conflicting && conflicting.name.trim().toLowerCase() === normalizedName) {
+      throw new ConflictException(
+        `Ya existe un presupuesto con el mismo nombre y categorías en el período: "${conflicting.name}".`,
+      );
+    }
+  }
+
   private async calculateSpent(
     tx: Prisma.TransactionClient,
     userId: string,
@@ -116,6 +161,7 @@ export class BudgetsService {
     const { start, end } = this.validateBudgetRange(dto.startDate, dto.endDate);
     return this.prisma.$transaction(async (tx) => {
       await this.validateCategories(tx, userId, dto.categoryIds, TransactionType.EXPENSE);
+      await this.validateNoOverlap(tx, userId, dto.name, start, end, dto.categoryIds);
       const budget = await tx.budget.create({
         data: {
           userId,
@@ -248,10 +294,20 @@ export class BudgetsService {
         },
       });
       if (!original) throw new NotFoundException('Presupuesto no encontrado.');
+      const name = dto.name ?? `${original.name} (copia)`;
+      await this.validateNoOverlap(
+        tx,
+        userId,
+        name,
+        start,
+        end,
+        original.categories.map((relation) => relation.categoryId),
+        id,
+      );
       const budget = await tx.budget.create({
         data: {
           userId,
-          name: dto.name ?? `${original.name} (copia)`,
+          name,
           amount: original.amount,
           currency: original.currency,
           period: original.period,
@@ -287,6 +343,18 @@ export class BudgetsService {
       const start = dto.startDate ? this.parseDate(dto.startDate) : current.startDate;
       const end = dto.endDate !== undefined ? (dto.endDate ? this.parseDate(dto.endDate) : null) : current.endDate;
       if (end && start > end) throw new BadRequestException('La fecha de inicio no puede superar la fecha de fin.');
+      const overlapFieldsChanged = dto.name !== undefined || dto.startDate !== undefined || dto.endDate !== undefined || dto.categoryIds !== undefined;
+      if (overlapFieldsChanged) {
+        await this.validateNoOverlap(
+          tx,
+          userId,
+          dto.name ?? current.name,
+          start,
+          end,
+          dto.categoryIds ?? current.categories.map((relation) => relation.categoryId),
+          id,
+        );
+      }
       if (dto.categoryIds) {
         await tx.budgetCategory.updateMany({ where: { budgetId: id, categoryId: { notIn: dto.categoryIds } }, data: { deletedAt: new Date() } });
         for (const categoryId of dto.categoryIds) {
