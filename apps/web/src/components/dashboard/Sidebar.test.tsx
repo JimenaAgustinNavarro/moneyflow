@@ -35,16 +35,15 @@ describe('Sidebar', () => {
 
     expect(screen.getByRole('link', { name: 'Presupuestos' })).toHaveAttribute('href', '/budgets');
 
-    for (const label of ['Metas', 'Configuración']) {
-      expect(screen.getByLabelText(label)).toHaveAttribute('aria-disabled', 'true');
-      expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument();
-    }
+    expect(screen.getByRole('link', { name: 'Metas' })).toHaveAttribute('href', '/savings-goals');
+    expect(screen.getByLabelText('Configuración')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('link', { name: 'Configuración' })).not.toBeInTheDocument();
   });
 
   it('proporciona nombres y títulos accesibles en los enlaces habilitados', () => {
     render(<Sidebar />);
 
-    for (const label of ['Dashboard', 'Cuentas', 'Categorías', 'Movimientos', 'Recurrencias', 'Obligaciones']) {
+    for (const label of ['Dashboard', 'Cuentas', 'Categorías', 'Movimientos', 'Recurrencias', 'Obligaciones', 'Metas']) {
       const link = screen.getByRole('link', { name: label });
       expect(link).toHaveAttribute('aria-label', label);
       expect(link).toHaveAttribute('title', label);
@@ -54,11 +53,9 @@ describe('Sidebar', () => {
   it('marca como deshabilitados los elementos aún no disponibles', () => {
     render(<Sidebar />);
 
-    for (const label of ['Metas', 'Configuración']) {
-      const item = screen.getByLabelText(label);
-      expect(item).toHaveAttribute('aria-disabled', 'true');
-      expect(item).toHaveAttribute('title', 'Próximamente');
-    }
+    const item = screen.getByLabelText('Configuración');
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+    expect(item).toHaveAttribute('title', 'Próximamente');
   });
 
   it('marca Presupuestos como activo en /budgets', () => {
@@ -67,5 +64,13 @@ describe('Sidebar', () => {
 
     expect(screen.getByRole('link', { name: 'Presupuestos' })).toHaveAttribute('href', '/budgets');
     expect(screen.getByRole('link', { name: 'Presupuestos' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('marca Metas como activo en /savings-goals', () => {
+    pathname.mockReturnValue('/savings-goals');
+    render(<Sidebar />);
+
+    expect(screen.getByRole('link', { name: 'Metas' })).toHaveAttribute('href', '/savings-goals');
+    expect(screen.getByRole('link', { name: 'Metas' })).toHaveAttribute('aria-current', 'page');
   });
 });

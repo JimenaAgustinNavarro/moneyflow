@@ -60,9 +60,13 @@ async function readPayload(response: Response): Promise<unknown> {
 }
 
 function unwrapData<T>(payload: unknown): T {
-  return payload && typeof payload === 'object' && 'data' in payload
-    ? (payload as { data: T }).data
-    : (payload as T);
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    if ('meta' in payload) {
+      return payload as T;
+    }
+    return (payload as { data: T }).data;
+  }
+  return payload as T;
 }
 
 function responseError(response: Response, payload: unknown): ApiError {

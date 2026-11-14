@@ -163,6 +163,62 @@ describe('api-client', () => {
     });
   });
 
+  it('authenticatedRequest conserva meta en las respuestas paginadas', async () => {
+    const { saveAuthUser } = await import('@/lib/auth-storage');
+    saveAuthUser({
+      id: '1', email: 'ana@example.com', name: 'Ana', timezone: 'America/Lima',
+    });
+    const payload = {
+      data: [],
+      meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const { authenticatedRequest } = await import('@/lib/api-client');
+
+    await expect(authenticatedRequest<typeof payload>('/savings-goals')).resolves.toEqual(payload);
+  });
+
+  it('authenticatedRequest desenvuelve data cuando la respuesta no incluye meta', async () => {
+    const { saveAuthUser } = await import('@/lib/auth-storage');
+    saveAuthUser({
+      id: '1', email: 'ana@example.com', name: 'Ana', timezone: 'America/Lima',
+    });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const { authenticatedRequest } = await import('@/lib/api-client');
+
+    await expect(authenticatedRequest<unknown[]>('/items')).resolves.toEqual([]);
+  });
+
+  it('authenticatedRequest devuelve el body sin data cuando no hay envelope', async () => {
+    const { saveAuthUser } = await import('@/lib/auth-storage');
+    saveAuthUser({
+      id: '1', email: 'ana@example.com', name: 'Ana', timezone: 'America/Lima',
+    });
+    const payload = { message: 'Respuesta plana' };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const { authenticatedRequest } = await import('@/lib/api-client');
+
+    await expect(authenticatedRequest<typeof payload>('/plain')).resolves.toEqual(payload);
+  });
+
   it('renueva la sesión y reintenta una request protegida tras 401', async () => {
     const { saveAuthUser } = await import('@/lib/auth-storage');
     saveAuthUser({
