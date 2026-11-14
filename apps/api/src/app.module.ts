@@ -15,6 +15,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { RecurrencesModule } from './recurrences/recurrences.module';
 import { ObligationsModule } from './obligations/obligations.module';
 import { BudgetsModule } from './budgets/budgets.module';
+import { SavingsGoalsModule } from './savings-goals/savings-goals.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { BudgetsModule } from './budgets/budgets.module';
     RecurrencesModule,
     ObligationsModule,
     BudgetsModule,
+    SavingsGoalsModule,
   ],
   controllers: [AppController],
   providers: [

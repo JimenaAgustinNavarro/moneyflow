@@ -296,8 +296,7 @@ id	String	@id @default(uuid())	—
 userId	String	FK → users.id, onDelete: Cascade	Dueño
 name	String	—	—
 targetAmount	Decimal	@db.Decimal(19, 2)	Monto objetivo
-currentAmount	Decimal	@db.Decimal(19, 2), @default(0)	Acumulado
-targetDate	DateTime?	@db.Timestamptz(6)	Fecha límite
+targetDate	DateTime?	@db.Date	Fecha límite
 accountId	String?	FK → accounts.id, onDelete: SetNull	Cuenta asociada
 status	GoalStatus	@default(ACTIVE)	ACTIVE, COMPLETED, CANCELLED
 createdAt	DateTime	@default(now())	—
@@ -313,6 +312,8 @@ Map: @@map("savings_goals").
 
 Enum GoalStatus: ACTIVE, COMPLETED, CANCELLED.
 
+El monto acumulado (`currentAmount`) no se almacena. Se calcula sumando los aportes `DEPOSIT` activos y restando los retiros `WITHDRAWAL` activos asociados a la meta.
+
 2.10 goal_contributions
 Propósito: aportes y retiros de una meta.
 
@@ -322,7 +323,7 @@ goalId	String	FK → savings_goals.id, onDelete: Cascade	—
 transactionId	String?	FK → transactions.id, onDelete: SetNull	Movimiento vinculado
 amount	Decimal	@db.Decimal(19, 2)	Positivo
 type	ContributionType	—	DEPOSIT o WITHDRAWAL
-date	DateTime	@db.Timestamptz(6)	—
+date	DateTime	@db.Timestamptz(6)	Nombre público del campo Prisma `occurredAt`
 createdAt	DateTime	@default(now())	—
 deletedAt	DateTime?	@db.Timestamptz(6) @map("deleted_at")	Soft delete
 Constraints:

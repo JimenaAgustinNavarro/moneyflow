@@ -140,7 +140,7 @@ json
 "data": [ ... ],
 "meta": { "page": 1, "limit": 20, "total": 145, "totalPages": 8 }
 }
-Endpoints sin paginación: GET /accounts, /categories, /budgets, /savings-goals, /tags, /recurrences.
+Endpoints sin paginación: GET /accounts, /categories, /budgets, /tags, /recurrences.
 
 Response:
 
@@ -1337,6 +1337,10 @@ status (opcional): ACTIVE | COMPLETED | CANCELLED.
 
 includeDeleted (opcional): true.
 
+page (opcional): número de página, default 1.
+
+limit (opcional): tamaño de página, default 20, máximo 100.
+
 Response (200):
 
 json
@@ -1353,7 +1357,13 @@ json
       "progreso": 25.00,
       "createdAt": "2026-10-01T00:00:00-05:00"
     }
-  ]
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
 }
 Errores:
 
@@ -1522,11 +1532,9 @@ Response (201): igual que GET /savings-goals/:goalId/contributions.
 
 Errores:
 
-400: validación fallida.
+400: validación fallida o retiro mayor al acumulado.
 
 404: meta o movimiento no encontrado.
-
-422: retiro mayor al acumulado.
 
 Reglas de negocio:
 
